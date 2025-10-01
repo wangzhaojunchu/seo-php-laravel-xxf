@@ -1,0 +1,438 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class AdminController extends Controller
+{
+    public function dashboard()
+    {
+        $serverInfo = [
+            'php_version' => PHP_VERSION,
+            'os' => php_uname(),
+            'disk_free' => @disk_free_space(base_path()),
+            'disk_total' => @disk_total_space(base_path()),
+            'uptime' => trim(@shell_exec('uptime -p') ?: ''),
+            'memory_usage' => memory_get_usage(true),
+        ];
+        // Prefer daily log files (access-YYYY-MM-DD.log). Fall back to the most recent matching file if today's is missing.
+        $access = null;
+        $spiders = null;
+        $todayAccess = storage_path('logs') . DIRECTORY_SEPARATOR . 'access-' . date('Y-m-d') . '.log';
+        $todaySpider = storage_path('logs') . DIRECTORY_SEPARATOR . 'spider-' . date('Y-m-d') . '.log';
+
+        $accessFile = null;
+        if (file_exists($todayAccess)) {
+            $accessFile = $todayAccess;
+        } else {
+            // glob with forward slash pattern is more portable on Windows
+            $files = glob(storage_path('logs') . DIRECTORY_SEPARATOR . 'access-*.log');
+            if (!empty($files)) {
+                usort($files, function($a, $b) { return filemtime($b) <=> filemtime($a); });
+                $accessFile = $files[0];
+            }
+        }
+
+        $spiderFile = null;
+        if (file_exists($todaySpider)) {
+            $spiderFile = $todaySpider;
+        } else {
+            $sfiles = glob(storage_path('logs') . DIRECTORY_SEPARATOR . 'spider-*.log');
+            if (!empty($sfiles)) {
+                usort($sfiles, function($a, $b) { return filemtime($b) <=> filemtime($a); });
+                $spiderFile = $sfiles[0];
+            }
+        }
+
+        if ($accessFile && file_exists($accessFile)) {
+            $access = implode("\n", array_slice(file($accessFile), -200));
+        }
+        if ($spiderFile && file_exists($spiderFile)) {
+            $spiders = implode("\n", array_slice(file($spiderFile), -200));
+        }
+        return view('admin', ['page' => 'home', 'serverInfo' => $serverInfo, 'accessLogs' => $access, 'spiderLogs' => $spiders]);
+    }
+
+    public function settings()
+    {
+        return view('admin', ['page' => 'settings']);
+    }
+
+    public function passwordForm()
+    {
+        return view('admin', ['page' => 'password']);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $pwFile = base_path('data') . DIRECTORY_SEPARATOR . 'password.txt';
+        if (!is_dir(dirname($pwFile))) {
+            @mkdir(dirname($pwFile), 0755, true);
+        }
+        $new = (string)$request->input('new_password', '');
+        if (trim($new) === '') {
+            return redirect()->route('admin.password')->withErrors(['new_password' => 'New password cannot be empty']);
+        }
+        file_put_contents($pwFile, $new);
+        return redirect()->route('admin.password')->with('status', 'Password updated successfully');
+    }
+
+    public function logs(Request $request)
+    {
+        $date = $request->query('date', date('Y-m-d'));
+        // validate inputs
+        $validator = Validator::make($request->all(), [
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+            'ip' => 'nullable|string|max:128',
+            'status' => 'nullable|string|max:16',
+            'q' => 'nullable|string|max:256',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:10|max:200',
+        ]);
+        if ($validator->fails()) {
+            return redirect()->route('admin.logs')->withErrors($validator)->withInput();
+        }
+        
+        $from = $request->query('from', $date);
+        $to = $request->query('to', $date);
+        $ip = $request->query('ip', null);
+        $status = $request->query('status', null);
+        $q = $request->query('q', null);
+    $page = max(1, (int)$request->query('page', 1));
+    $per = max(10, min(200, (int)$request->query('per_page', 20)));
+        $download = $request->query('download', null);
+
+        // Build date range
+        try {
+            $periodStart = new \DateTime($from);
+            $periodEnd = new \DateTime($to);
+        } catch (\Exception $e) {
+            $periodStart = new \DateTime($date);
+            $periodEnd = new \DateTime($date);
+        }
+        if ($periodEnd < $periodStart) {
+            // swap
+            $t = $periodStart; $periodStart = $periodEnd; $periodEnd = $t;
+        }
+
+        $entries = [];
+        $counts = [];
+        $labels = [];
+        $d = clone $periodStart;
+        while ($d <= $periodEnd) {
+            $day = $d->format('Y-m-d');
+            $labels[] = $day;
+            $counts[$day] = 0;
+            $file = storage_path("logs/access-{$day}.log");
+            if (file_exists($file)) {
+                $lines = array_map('trim', file($file));
+                foreach ($lines as $ln) {
+                    if ($ln === '') continue;
+                    $parts = preg_split('/\t+/', $ln);
+                    $row = [
+                        'datetime' => $parts[0] ?? '',
+                        'ip' => $parts[1] ?? '',
+                        'method' => $parts[2] ?? '',
+                        'status' => $parts[3] ?? '',
+                        'url' => $parts[4] ?? '',
+                        'raw' => $ln,
+                    ];
+                    // apply filters
+                    if ($ip && stripos($row['ip'], $ip) === false) continue;
+                    if ($status && (string)$row['status'] !== (string)$status) continue;
+                    if ($q && stripos($row['url'], $q) === false && stripos($row['ip'], $q) === false) continue;
+                    $entries[] = $row;
+                    $counts[$day]++;
+                }
+            }
+            $d->modify('+1 day');
+        }
+
+        // filtered list ready in $entries
+        $filtered = $entries;
+
+        if ($download === 'access') {
+            $csv = "datetime,ip,method,status,url\n";
+            foreach ($filtered as $r) {
+                $csv .= sprintf('"%s","%s","%s","%s","%s"\n', $r['datetime'], $r['ip'], $r['method'], $r['status'], addslashes($r['url']));
+            }
+            return response($csv, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=access-{$date}.csv",
+            ]);
+        }
+        
+        $total = count($filtered);
+        $pages = max(1, ceil($total / $per));
+        $slice = array_slice(array_reverse(array_values($filtered)), ($page-1)*$per, $per);
+
+        // prepare chart data arrays in same order as labels
+        $chartCounts = [];
+        foreach ($labels as $lab) {
+            $chartCounts[] = $counts[$lab] ?? 0;
+        }
+        return view('admin', ['page' => 'logs', 'logs' => $slice, 'total' => $total, 'currentPage' => $page, 'pages' => $pages, 'date' => $date, 'from' => $from, 'to' => $to, 'ip' => $ip, 'status' => $status, 'q' => $q, 'per' => $per, 'chartLabels' => $labels, 'chartCounts' => $chartCounts]);
+    }
+
+    public function spiders(Request $request)
+    {
+        $date = $request->query('date', date('Y-m-d'));
+        $validator = Validator::make($request->all(), [
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+            'bot' => 'nullable|string|max:128',
+            'ip' => 'nullable|string|max:128',
+            'q' => 'nullable|string|max:256',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:10|max:200',
+        ]);
+        if ($validator->fails()) {
+            return redirect()->route('admin.spiders')->withErrors($validator)->withInput();
+        }
+
+        $from = $request->query('from', $date);
+        $to = $request->query('to', $date);
+        $bot = $request->query('bot', null);
+        $ip = $request->query('ip', null);
+        $q = $request->query('q', null);
+    $page = max(1, (int)$request->query('page', 1));
+    $per = max(10, min(200, (int)$request->query('per_page', 20)));
+        $download = $request->query('download', null);
+
+        try {
+            $periodStart = new \DateTime($from);
+            $periodEnd = new \DateTime($to);
+        } catch (\Exception $e) {
+            $periodStart = new \DateTime($date);
+            $periodEnd = new \DateTime($date);
+        }
+        if ($periodEnd < $periodStart) {
+            $t = $periodStart; $periodStart = $periodEnd; $periodEnd = $t;
+        }
+
+        $entries = [];
+        $counts = [];
+        $labels = [];
+        $d = clone $periodStart;
+        while ($d <= $periodEnd) {
+            $day = $d->format('Y-m-d');
+            $labels[] = $day;
+            $counts[$day] = 0;
+            $file = storage_path("logs/spider-{$day}.log");
+            if (file_exists($file)) {
+                $lines = array_map('trim', file($file));
+                foreach ($lines as $ln) {
+                    if ($ln === '') continue;
+                    $parts = preg_split('/\t+/', $ln);
+                    $row = [
+                        'datetime' => $parts[0] ?? '',
+                        'ip' => $parts[1] ?? '',
+                        'bot' => $parts[2] ?? '',
+                        'method' => $parts[3] ?? '',
+                        'url' => $parts[4] ?? '',
+                        'raw' => $ln,
+                    ];
+                    if ($bot && stripos($row['bot'], $bot) === false) continue;
+                    if ($ip && stripos($row['ip'], $ip) === false) continue;
+                    if ($q && stripos($row['url'], $q) === false && stripos($row['ip'], $q) === false) continue;
+                    $entries[] = $row;
+                    $counts[$day]++;
+                }
+            }
+            $d->modify('+1 day');
+        }
+
+        $filtered = $entries;
+
+        if ($download === 'spider') {
+            $csv = "datetime,ip,bot,method,url\n";
+            foreach ($filtered as $r) {
+                $csv .= sprintf('"%s","%s","%s","%s","%s"\n', $r['datetime'], $r['ip'], $r['bot'], $r['method'], addslashes($r['url']));
+            }
+            return response($csv, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=spider-{$date}.csv",
+            ]);
+        }
+
+        $total = count($filtered);
+        $pages = max(1, ceil($total / $per));
+        $slice = array_slice(array_reverse(array_values($filtered)), ($page-1)*$per, $per);
+
+        $chartCounts = [];
+        foreach ($labels as $lab) {
+            $chartCounts[] = $counts[$lab] ?? 0;
+        }
+
+    return view('admin', ['page' => 'spiders', 'spiderLogs' => $slice, 'total' => $total, 'currentPage' => $page, 'pages' => $pages, 'date' => $date, 'from' => $from, 'to' => $to, 'bot' => $bot, 'ip' => $ip, 'q' => $q, 'per' => $per, 'chartLabels' => $labels, 'chartCounts' => $chartCounts]);
+    }
+
+    public function repair()
+    {
+        return view('admin', ['page' => 'repair']);
+    }
+
+    public function runRepair(Request $request)
+    {
+        $action = $request->input('action', '');
+        $result = '';
+        try {
+            if ($action === 'cache-clear') {
+                $result = shell_exec('php ' . base_path('artisan') . ' cache:clear 2>&1');
+            } elseif ($action === 'config-cache') {
+                $result = shell_exec('php ' . base_path('artisan') . ' config:cache 2>&1');
+            } else {
+                $result = 'No action specified';
+            }
+        } catch (\Throwable $e) {
+            $result = 'Error: ' . $e->getMessage();
+        }
+        return view('admin', ['page' => 'repair', 'repairResult' => $result]);
+    }
+
+    public function generateFakeLogs(Request $request)
+    {
+        $date = $request->input('date', date('Y-m-d'));
+        $count = max(1, min(1000, (int)$request->input('count', 200)));
+        $accessFile = storage_path("logs/access-{$date}.log");
+        $spiderFile = storage_path("logs/spider-{$date}.log");
+        $ips = ['192.168.1.10','192.168.1.11','203.0.113.5','198.51.100.23','8.8.8.8'];
+        $methods = ['GET','POST','HEAD'];
+        $urls = ['/','/about','/products','/search?q=php','/robots.txt','/sitemap.xml'];
+        $bots = ['Googlebot','Bingbot','Baiduspider','YandexBot','DuckDuckBot','AhrefsBot'];
+        $afh = fopen($accessFile, 'a');
+        $sph = fopen($spiderFile, 'a');
+        if ($afh) {
+            for ($i=0;$i<$count;$i++){
+                $ts = strtotime($date) + rand(0, 86400 - 1);
+                $t = date('Y-m-d H:i:s', $ts);
+                $ip = $ips[array_rand($ips)];
+                $m = $methods[array_rand($methods)];
+                $statusList = [200,200,200,301,404,500];
+                $status = $statusList[array_rand($statusList)];
+                $url = $urls[array_rand($urls)];
+                fwrite($afh, implode("\t", [$t,$ip,$m,$status,$url]) . "\n");
+            }
+            fclose($afh);
+        }
+        if ($sph) {
+            for ($i=0;$i<intval($count/4);$i++){
+                $ts = strtotime($date) + rand(0, 86400 - 1);
+                $t = date('Y-m-d H:i:s', $ts);
+                $ip = $ips[array_rand($ips)];
+                $bot = $bots[array_rand($bots)];
+                $m = $methods[array_rand($methods)];
+                $url = $urls[array_rand($urls)];
+                fwrite($sph, implode("\t", [$t,$ip,$bot,$m,$url]) . "\n");
+            }
+            fclose($sph);
+        }
+        return redirect()->route('admin.repair')->with('status', 'Fake logs generated for ' . $date);
+    }
+
+    public function sites()
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'sites.json';
+        $sites = [];
+        if (file_exists($file)) {
+            $sites = json_decode(file_get_contents($file), true) ?: [];
+        }
+        return view('admin', ['page' => 'sites', 'sitesList' => $sites]);
+    }
+
+    public function saveSites(Request $request)
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'sites.json';
+        $input = $request->input('sites', '');
+        $sites = preg_split('/\r?\n/', trim($input));
+        $sites = array_values(array_filter(array_map('trim', $sites)));
+        file_put_contents($file, json_encode($sites, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.sites')->with('status', 'Sites saved');
+    }
+
+    public function models()
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'models.json';
+        $models = [];
+        if (file_exists($file)) {
+            $models = json_decode(file_get_contents($file), true) ?: [];
+        }
+        return view('admin', ['page' => 'models', 'modelsList' => $models]);
+    }
+
+    public function saveModels(Request $request)
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'models.json';
+        $input = $request->input('models', '');
+        $models = preg_split('/\r?\n/', trim($input));
+        $models = array_values(array_filter(array_map('trim', $models)));
+        file_put_contents($file, json_encode($models, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.models')->with('status', 'Models saved');
+    }
+
+    public function accessIp()
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'ip_control.json';
+        $cfg = ['default' => 'allow', 'allow' => [], 'deny' => []];
+        if (file_exists($file)) {
+            $cfg = json_decode(file_get_contents($file), true) ?: $cfg;
+        }
+        return view('admin', ['page' => 'access_ip', 'ipDefault' => ($cfg['default'] ?? 'allow'), 'ipAllow' => ($cfg['allow'] ?? []), 'ipDeny' => ($cfg['deny'] ?? [])]);
+    }
+
+    public function saveAccessIp(Request $request)
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'ip_control.json';
+        $mode = $request->input('default_mode', 'allow');
+        $allowRaw = $request->input('allow_ips', '');
+        $denyRaw = $request->input('deny_ips', '');
+        $allow = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($allowRaw)))));
+        $deny = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($denyRaw)))));
+        $cfg = ['default' => in_array($mode, ['allow','deny']) ? $mode : 'allow', 'allow' => $allow, 'deny' => $deny];
+        file_put_contents($file, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.access.ip')->with('status', 'IP rules saved');
+    }
+
+    public function accessUa()
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'ua_control.json';
+        $ua = [];
+        if (file_exists($file)) {
+            $ua = json_decode(file_get_contents($file), true) ?: [];
+        }
+        $common = [
+            'Googlebot','Bingbot','Baiduspider','YandexBot','DuckDuckBot','Sogou','Exabot','AhrefsBot','SemrushBot','MJ12bot','DotBot','Baiduspider-image'
+        ];
+        return view('admin', ['page' => 'access_ua', 'uaList' => $ua, 'availableBots' => $common]);
+    }
+
+    public function saveAccessUa(Request $request)
+    {
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $file = $dir . DIRECTORY_SEPARATOR . 'ua_control.json';
+        $selected = $request->input('bots', []);
+        if (!is_array($selected)) {
+            $selected = [$selected];
+        }
+        file_put_contents($file, json_encode(array_values($selected), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.access.ua')->with('status', 'UA rules saved');
+    }
+}

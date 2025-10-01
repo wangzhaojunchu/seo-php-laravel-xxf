@@ -33,6 +33,10 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\IpAccessControl::class,
+            \App\Http\Middleware\UaAccessControl::class,
+            \App\Http\Middleware\AccessLog::class,
+            \App\Http\Middleware\SpiderLog::class,
             // \Illuminate\Session\Middleware\AuthenticateSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
@@ -63,5 +67,8 @@ class Kernel extends HttpKernel
         'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'admin.auth' => \App\Http\Middleware\AdminAuth::class,
+        'ip.access' => \App\Http\Middleware\IpAccessControl::class,
+        'ua.access' => \App\Http\Middleware\UaAccessControl::class,
     ];
 }
