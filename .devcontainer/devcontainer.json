@@ -1,0 +1,41 @@
+{
+  "name": "Laravel Dev Container (with Redis)",
+  "image": "mcr.microsoft.com/devcontainers/php",
+  // "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "onecentlin.laravel-blade",
+        "amiralizadeh9480.laravel-extra-intellisense",
+        "ryannaddy.laravel-artisan",
+        "MehediDracula.php-namespace-resolver",
+        // "Tailwind Labs.tailwindcss-intellisense",
+        "Vue.volar",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "features": {
+    // "ghcr.io/devcontainers/features/docker-in-docker:1": {},
+    "ghcr.io/devcontainers-extra/features/redis-homebrew:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "forwardPorts": [
+    8000
+  ],
+  // "postCreateCommand": "/bin/bash .devcontainer/post-create.sh",
+  "postCreateCommand": "chmod +x setup.sh && ./setup.sh",
+  "postStartCommand": "php --version && cd web && php artisan serve",
+  "remoteUser": "vscode"
+  // "overrideCommand": false
+  // "postStartCommand": ["/opt/bitnami/scripts/laravel/entrypoint.sh","/opt/bitnami/scripts/laravel/run.sh"]
+}
