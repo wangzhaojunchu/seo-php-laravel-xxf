@@ -1,0 +1,25 @@
+[
+    {
+        "name": "1",
+        "key": "1",
+        "template": {
+            "\/": "index.html"
+        }
+    },
+    {
+        "name": "2",
+        "key": "2",
+        "template": {
+            "page": "template.html",
+            "list": "list.html"
+        }
+    },
+    {
+        "name": "2",
+        "key": "3",
+        "template": {
+            "page": "template.html",
+            "list": "list.html"
+        }
+    }
+]

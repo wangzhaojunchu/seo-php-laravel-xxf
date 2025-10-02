@@ -1,0 +1,8 @@
+{
+    "enabled": true,
+    "endpoint": "\/api\/articles",
+    "key": "23cf96ae6ca6e9f84ac726b7b399dcb0",
+    "allowed_sources": [
+        "api"
+    ]
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "技术模型",
+    "key": "tech_model",
+    "template": {
+      "page": "tech_page.html",
+      "list": "tech_list.html"
+    }
+  },
+  {
+    "name": "新闻模型",
+    "key": "news_model",
+    "template": {
+      "page": "news_page.html",
+      "list": "news_list.html"
+    }
+  }
+]

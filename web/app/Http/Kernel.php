@@ -37,6 +37,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\UaAccessControl::class,
             \App\Http\Middleware\AccessLog::class,
             \App\Http\Middleware\SpiderLog::class,
+            \App\Http\Middleware\AdminActionLog::class,
             // \Illuminate\Session\Middleware\AuthenticateSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,

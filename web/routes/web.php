@@ -59,6 +59,16 @@ Route::post('/admin/generate-fake-logs', [AdminController::class, 'generateFakeL
 Route::get('/admin/sites', [AdminController::class, 'sites'])->middleware('admin.auth')->name('admin.sites');
 
 Route::post('/admin/sites', [AdminController::class, 'saveSites'])->middleware('admin.auth')->name('admin.sites.save');
+// Delete a group by name (AJAX)
+Route::post('/admin/sites/delete', [AdminController::class, 'deleteSite'])->middleware('admin.auth')->name('admin.sites.delete');
+Route::post('/admin/sites/restore', [AdminController::class, 'restoreSite'])->middleware('admin.auth')->name('admin.sites.restore');
+
+// JSON endpoint for models list used by admin UI
+Route::get('/admin/models/list', [AdminController::class, 'modelsList'])->middleware('admin.auth')->name('admin.models.list');
+// List site backups and accept JSON site saves (AJAX)
+Route::get('/admin/sites/backups', [AdminController::class, 'sitesBackups'])->middleware('admin.auth')->name('admin.sites.backups');
+Route::get('/admin/sites/json', [AdminController::class, 'sitesJson'])->middleware('admin.auth')->name('admin.sites.json');
+Route::post('/admin/sites/json', [AdminController::class, 'saveSitesJson'])->middleware('admin.auth')->name('admin.sites.json');
 
 // 站群管理 - 模型管理
 Route::get('/admin/models', [AdminController::class, 'models'])->middleware('admin.auth')->name('admin.models');
@@ -79,5 +89,21 @@ Route::post('/admin/access/ua', [AdminController::class, 'saveAccessUa'])->middl
 Route::get('/admin/content/ai', [AdminController::class, 'showContentAi'])->middleware('admin.auth')->name('admin.content.ai');
 Route::post('/admin/content/ai', [AdminController::class, 'generateAiArticle'])->middleware('admin.auth')->name('admin.content.ai.generate');
 Route::get('/admin/content/manage', [AdminController::class, 'showContentManage'])->middleware('admin.auth')->name('admin.content.manage');
+// Content resources (keywords/columns/tips/suffixes) management page
+Route::get('/admin/content/resources', [AdminController::class, 'showContentResources'])->middleware('admin.auth')->name('admin.content.resources');
+Route::post('/admin/content/resources/add', [AdminController::class, 'addContentResource'])->middleware('admin.auth')->name('admin.content.resources.add');
 Route::get('/admin/content/collection', [AdminController::class, 'showContentCollection'])->middleware('admin.auth')->name('admin.content.collection');
+
+// Content file operations: list, upload, delete (per group)
+Route::get('/admin/content/files', [AdminController::class, 'contentFilesList'])->middleware('admin.auth')->name('admin.content.files');
+Route::post('/admin/content/upload', [AdminController::class, 'uploadContentFile'])->middleware('admin.auth')->name('admin.content.upload');
+Route::post('/admin/content/delete-file', [AdminController::class, 'deleteContentFile'])->middleware('admin.auth')->name('admin.content.delete_file');
+
+// API 管理
+Route::get('/admin/api', [AdminController::class, 'api'])->middleware('admin.auth')->name('admin.api');
+Route::post('/admin/api', [AdminController::class, 'saveApiConfig'])->middleware('admin.auth')->name('admin.api.save');
+
+// Public API endpoint to receive articles
+use App\Http\Controllers\ArticleApiController;
+Route::post('/api/articles', [ArticleApiController::class, 'receive']);
 

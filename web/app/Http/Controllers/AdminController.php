@@ -108,27 +108,47 @@ class AdminController extends Controller
             $t = $periodStart; $periodStart = $periodEnd; $periodEnd = $t;
         }
 
+        $download = $request->query('download', null);
+
         $entries = [];
         $d = clone $periodStart;
         while ($d <= $periodEnd) {
             $day = $d->format('Y-m-d');
-            $file = storage_path("logs/operation-{$day}.log");
+            $file = base_path('data') . DIRECTORY_SEPARATOR . 'action' . DIRECTORY_SEPARATOR . "action-{$day}.log";
             if (file_exists($file)) {
                 $lines = array_map('trim', file($file));
                 foreach ($lines as $ln) {
                     if ($ln === '') continue;
-                    $parts = preg_split('/\t+/', $ln);
+                    $obj = json_decode($ln, true);
+                    if (!$obj) continue;
                     $row = [
-                        'datetime' => $parts[0] ?? '',
-                        'ip' => $parts[1] ?? '',
-                        'message' => $parts[2] ?? '',
+                        'datetime' => $obj['datetime'] ?? '',
+                        'user' => $obj['user'] ?? '',
+                        'ip' => $obj['ip'] ?? '',
+                        'method' => $obj['method'] ?? '',
+                        'uri' => $obj['uri'] ?? '',
+                        'status' => $obj['status'] ?? '',
+                        'duration' => $obj['duration'] ?? '',
+                        'action' => $obj['action'] ?? '',
+                        'payload' => isset($obj['payload']) ? (is_array($obj['payload']) ? json_encode($obj['payload'], JSON_UNESCAPED_UNICODE) : (string)$obj['payload']) : '',
                         'raw' => $ln,
                     ];
-                    if ($q && stripos($row['message'], $q) === false && stripos($row['ip'], $q) === false) continue;
+                    if ($q && stripos($row['uri'] . ' ' . $row['user'] . ' ' . $row['ip'] . ' ' . $row['payload'], $q) === false) continue;
                     $entries[] = $row;
                 }
             }
             $d->modify('+1 day');
+        }
+
+        if ($download === 'action') {
+            $csv = "datetime,user,ip,method,uri,status,duration,action,payload\n";
+            foreach ($entries as $r) {
+                $csv .= sprintf('"%s","%s","%s","%s","%s","%s","%s","%s","%s"\n', $r['datetime'], $r['user'], $r['ip'], $r['method'], $r['uri'], $r['status'], $r['duration'], addslashes($r['action'] ?? ''), addslashes($r['payload'] ?? ''));
+            }
+            return response($csv, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=action-{$date}.csv",
+            ]);
         }
 
         $total = count($entries);
@@ -354,6 +374,52 @@ class AdminController extends Controller
         return view('admin', ['page' => 'repair', 'repairResult' => $result]);
     }
 
+    public function api()
+    {
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'config.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $cfg = [];
+        if (file_exists($file)) {
+            $txt = file_get_contents($file);
+            $cfg = json_decode($txt, true) ?: [];
+        }
+        $json = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        return view('admin', ['page' => 'api_management', 'apiConfigJson' => $json]);
+    }
+
+    public function saveApiConfig(Request $request)
+    {
+        $json = $request->input('config_json', '');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'config.json';
+        $this->ensureDirectoryExists(dirname($file));
+
+        // Basic validation: valid JSON and must contain 'endpoint' and 'key'
+        $decoded = json_decode($json, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return redirect()->route('admin.api')->withErrors(['config_json' => 'Invalid JSON: ' . json_last_error_msg()])->withInput();
+        }
+        if (!isset($decoded['endpoint'])) {
+            return redirect()->route('admin.api')->withErrors(['config_json' => 'JSON must contain at least "endpoint" field'])->withInput();
+        }
+
+        // Auto-generate a key if missing or empty
+        if (empty($decoded['key'])) {
+            try {
+                $decoded['key'] = bin2hex(random_bytes(16));
+            } catch (\Throwable $e) {
+                $decoded['key'] = bin2hex(openssl_random_pseudo_bytes(16));
+            }
+        }
+
+        // Ensure allowed_sources exists
+        if (!isset($decoded['allowed_sources']) || !is_array($decoded['allowed_sources'])) {
+            $decoded['allowed_sources'] = ['api'];
+        }
+
+        file_put_contents($file, json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.api')->with('status', 'API 配置已保存')->with('api_key', $decoded['key']);
+    }
+
     public function generateFakeLogs(Request $request)
     {
         $date = $request->input('date', date('Y-m-d'));
@@ -396,28 +462,203 @@ class AdminController extends Controller
 
     public function sites()
     {
-        $file = base_path('data/access/sites.json');
+        // Read groups from data/group/groups.json
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
         $this->ensureDirectoryExists(dirname($file));
-        $sites = [];
+        $groups = [];
         if (file_exists($file)) {
-            $sites = json_decode(file_get_contents($file), true) ?: [];
+            $groups = json_decode(file_get_contents($file), true) ?: [];
         }
-        return view('admin', ['page' => 'sites', 'sitesList' => $sites]);
+        return view('admin', ['page' => 'sites', 'groups' => $groups]);
     }
 
     public function saveSites(Request $request)
     {
-        $file = base_path('data/access/sites.json');
+        // Expect JSON payload of groups or form inputs
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
         $this->ensureDirectoryExists(dirname($file));
-        $input = $request->input('sites', '');
-        $sites = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($input)))));
-        file_put_contents($file, json_encode($sites, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        return redirect()->route('admin.sites')->with('status', 'Sites saved');
+
+        // If a groups_json field is present, use it (from JS); otherwise, build from form fields
+        $groupsJson = $request->input('groups_json', null);
+        if ($groupsJson) {
+            $decoded = json_decode($groupsJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return redirect()->route('admin.sites')->withErrors(['groups' => 'Invalid groups JSON']);
+            }
+            $groups = $decoded;
+        } else {
+            // Build a single group from form inputs
+            $name = $request->input('group_name', 'default');
+            $domainsRaw = $request->input('group_domains', '');
+            $domains = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($domainsRaw)))));
+            $forceWww = $request->has('force_www');
+            $forceMobile = $request->has('force_mobile');
+            $opt = [
+                'name' => $name,
+                'domains' => $domains,
+                'force_www' => $forceWww,
+                'force_mobile' => $forceMobile,
+                'model' => $request->input('group_model', ''),
+                'template' => $request->input('group_template', ''),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            // Load existing groups and append
+            $groups = [];
+            if (file_exists($file)) {
+                $groups = json_decode(file_get_contents($file), true) ?: [];
+            }
+            $groups[] = $opt;
+        }
+
+        file_put_contents($file, json_encode($groups, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.sites')->with('status', 'Groups saved');
+    }
+
+    // Delete a site/group by name (AJAX-friendly)
+    public function deleteSite(Request $request)
+    {
+        $name = (string)$request->input('name', '');
+        if ($name === '') {
+            return response()->json(['ok' => false, 'message' => '缺少分组名'], 400);
+        }
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $groups = [];
+        if (file_exists($file)) {
+            $groups = json_decode(file_get_contents($file), true) ?: [];
+        }
+        $found = null;
+        $remaining = [];
+        foreach ($groups as $g) {
+            if (($g['name'] ?? '') === $name) {
+                $found = $g;
+            } else {
+                $remaining[] = $g;
+            }
+        }
+        if ($found === null) {
+            return response()->json(['ok' => false, 'message' => '未找到匹配的分组'], 404);
+        }
+        // Create backup file for undo
+        $backupDir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'backups';
+        $this->ensureDirectoryExists($backupDir);
+        $slug = preg_replace('/[^a-z0-9_\-]/i', '_', strtolower($name));
+        $backupFile = $backupDir . DIRECTORY_SEPARATOR . 'backup-' . date('Ymd-His') . '-' . $slug . '.json';
+        file_put_contents($backupFile, json_encode($found, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        // Save remaining groups
+        file_put_contents($file, json_encode(array_values($remaining), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        return response()->json(['ok' => true, 'message' => '分组已删除', 'backup' => basename($backupFile)]);
+    }
+
+    // Restore a site/group from a backup file
+    public function restoreSite(Request $request)
+    {
+        $backup = (string)$request->input('backup', '');
+        if ($backup === '') {
+            return response()->json(['ok' => false, 'message' => '缺少 backup 参数'], 400);
+        }
+        $backupFile = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . $backup;
+        if (!file_exists($backupFile)) {
+            return response()->json(['ok' => false, 'message' => '备份文件未找到'], 404);
+        }
+        $content = json_decode(file_get_contents($backupFile), true);
+        if (!$content || !is_array($content)) {
+            return response()->json(['ok' => false, 'message' => '备份数据无效'], 500);
+        }
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $groups = [];
+        if (file_exists($file)) {
+            $groups = json_decode(file_get_contents($file), true) ?: [];
+        }
+        // Avoid duplicates by name
+        foreach ($groups as $g) {
+            if (($g['name'] ?? '') === ($content['name'] ?? '')) {
+                return response()->json(['ok' => false, 'message' => '分组已存在，无法恢复'], 409);
+            }
+        }
+        $groups[] = $content;
+        file_put_contents($file, json_encode($groups, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        // Optionally remove the backup file
+        @unlink($backupFile);
+        return response()->json(['ok' => true, 'message' => '分组已恢复']);
+    }
+
+    // Return list of backup files for groups
+    public function sitesBackups()
+    {
+        $backupDir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'backups';
+        $this->ensureDirectoryExists($backupDir);
+        $files = glob($backupDir . DIRECTORY_SEPARATOR . 'backup-*.json') ?: [];
+        usort($files, function($a, $b){ return filemtime($b) <=> filemtime($a); });
+        $list = [];
+        foreach ($files as $f) {
+            $list[] = ['file' => basename($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f))];
+        }
+        return response()->json($list);
+    }
+
+    // Return groups as JSON for front-end usage (safer than fetching raw data file)
+    public function sitesJson()
+    {
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $groups = [];
+        if (file_exists($file)) {
+            $groups = json_decode(file_get_contents($file), true) ?: [];
+        }
+        return response()->json(array_values($groups));
+    }
+
+    // Accept JSON payload to save a site (AJAX-friendly)
+    public function saveSitesJson(Request $request)
+    {
+        $payload = $request->json()->all();
+        if (!$payload || !is_array($payload)) {
+            return response()->json(['ok' => false, 'message' => 'Invalid JSON payload'], 400);
+        }
+        // Expect either single group object or array
+        $group = null;
+        if (isset($payload['name'])) {
+            $group = $payload;
+        } elseif (isset($payload[0]) && is_array($payload[0])) {
+            $group = $payload[0];
+        }
+        if (!$group || empty($group['name'])) {
+            return response()->json(['ok' => false, 'message' => 'Missing group name'], 400);
+        }
+
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $groups = [];
+        if (file_exists($file)) {
+            $groups = json_decode(file_get_contents($file), true) ?: [];
+        }
+
+        // If name exists, replace; otherwise append
+        $replaced = false;
+        foreach ($groups as $i => $g) {
+            if (($g['name'] ?? '') === ($group['name'] ?? '')) {
+                $groups[$i] = array_merge($g, $group);
+                $replaced = true;
+                break;
+            }
+        }
+        if (!$replaced) {
+            $group['created_at'] = date('Y-m-d H:i:s');
+            $groups[] = $group;
+        }
+
+        // Write groups and return
+        file_put_contents($file, json_encode(array_values($groups), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return response()->json(['ok' => true, 'message' => $replaced ? 'Updated' : 'Created']);
     }
 
     public function models()
     {
-        $file = base_path('data/access/models.json');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'access' . DIRECTORY_SEPARATOR . 'models.json';
         $this->ensureDirectoryExists(dirname($file));
         $models = [];
         if (file_exists($file)) {
@@ -426,12 +667,102 @@ class AdminController extends Controller
         return view('admin', ['page' => 'models', 'modelsList' => $models]);
     }
 
+    // Return models as JSON for UI (AJAX)
+    public function modelsList()
+    {
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'access' . DIRECTORY_SEPARATOR . 'models.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $models = [];
+        if (file_exists($file)) {
+            $models = json_decode(file_get_contents($file), true) ?: [];
+        }
+        return response()->json($models);
+    }
+
     public function saveModels(Request $request)
     {
-        $file = base_path('data/access/models.json');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'access' . DIRECTORY_SEPARATOR . 'models.json';
         $this->ensureDirectoryExists(dirname($file));
-        $input = $request->input('models', '');
-        $models = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($input)))));
+
+        $modelsJson = $request->input('models_json', null);
+        if ($modelsJson) {
+            $decoded = json_decode($modelsJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return redirect()->route('admin.models')->withErrors(['models' => 'Invalid JSON']);
+            }
+            // Merge/update logic: if existing file contains entries with same key, update them; otherwise append
+            $newModels = $decoded;
+            $existing = [];
+            if (file_exists($file)) {
+                $existing = json_decode(file_get_contents($file), true) ?: [];
+            }
+            // Build map by key for existing
+            $map = [];
+            foreach ($existing as $e) {
+                if (!empty($e['key'])) $map[$e['key']] = $e;
+            }
+            foreach ($newModels as $nm) {
+                // Normalize template: allow string (JSON or single template) or array
+                if (isset($nm['template'])) {
+                    if (is_string($nm['template'])) {
+                        $tRaw = trim($nm['template']);
+                        $decodedT = json_decode($tRaw, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decodedT)) {
+                            $nm['template'] = $decodedT;
+                        } elseif ($tRaw !== '') {
+                            // treat as single-template shorthand -> map to 'page'
+                            $nm['template'] = ['page' => $tRaw];
+                        } else {
+                            // empty string -> default mapping
+                            $nm['template'] = ['page' => 'template.html', 'list' => 'list.html'];
+                        }
+                    } elseif (!is_array($nm['template'])) {
+                        // force to array default
+                        $nm['template'] = ['page' => 'template.html', 'list' => 'list.html'];
+                    }
+                } else {
+                    $nm['template'] = ['page' => 'template.html', 'list' => 'list.html'];
+                }
+
+                $k = $nm['key'] ?? '';
+                if ($k !== '' && isset($map[$k])) {
+                    // Update fields (merge but ensure template is array)
+                    $merged = array_merge($map[$k], $nm);
+                    if (!is_array($merged['template'])) $merged['template'] = ['page' => 'template.html'];
+                    $map[$k] = $merged;
+                } else {
+                    // New model, add to map with provided key or generated
+                    if ($k === '') {
+                        $k = preg_replace('/[^a-z0-9_\-]/i', '_', strtolower($nm['name'] ?? 'model'));
+                        $nm['key'] = $k;
+                    }
+                    $map[$k] = $nm;
+                }
+            }
+            // Convert map back to sequential array
+            $models = array_values($map);
+        } else {
+            // Fallback: one-line-per-model name (legacy)
+            // Support a single model form with multiline template mapping (model_template)
+            $name = $request->input('model_name', '');
+            $key = $request->input('model_key', '') ?: preg_replace('/[^a-z0-9_\-]/i', '_', strtolower($name ?: 'model'));
+            $tmplTxt = $request->input('model_template', '');
+            $mapping = [];
+            if (trim($tmplTxt) !== '') {
+                $lines = preg_split('/\r?\n/', trim($tmplTxt));
+                foreach ($lines as $ln) {
+                    $parts = preg_split('/=>/', $ln, 2);
+                    if (count($parts) == 2) {
+                        $k = trim($parts[0]);
+                        $v = trim($parts[1]);
+                        if ($k !== '') $mapping[$k] = $v;
+                    }
+                }
+            }
+            if (empty($mapping)) { $mapping = ['page' => 'template.html', 'list' => 'list.html']; }
+            $models = [ ['name' => $name ?: 'model', 'key' => $key, 'template' => $mapping] ];
+        }
+
         file_put_contents($file, json_encode($models, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.models')->with('status', 'Models saved');
     }
@@ -496,6 +827,52 @@ class AdminController extends Controller
         return view('admin', ['page' => 'content_collection']);
     }
 
+    // Separate page for content resources management (keywords/columns/tips/suffixes)
+    public function showContentResources(Request $request)
+    {   
+        $tab = $request->query('tab', 'keywords');
+        $group = $request->query('group', 'default');
+        $slug = $this->slugify($group ?: 'default');
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $tab;
+        $this->ensureDirectoryExists($dir);
+        $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+        $list = [];
+        foreach ($files as $f) {
+            if (!is_file($f)) continue;
+            $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f))];
+        }
+
+        // Render admin view with files list for server-side rendering
+        return view('admin', [
+            'page' => 'content_resources',
+            'resource_tab' => $tab,
+            'resource_group' => $group,
+            'resource_files' => $list,
+        ]);
+    }
+
+    // Add a simple content resource (text) via modal form (saves under data/group/{slug}/{type}/{name})
+    public function addContentResource(Request $request)
+    {
+        $group = (string)$request->input('group', 'default');
+        $type = (string)$request->input('type', 'keywords');
+        $name = (string)$request->input('name', 'new.txt');
+        $content = (string)$request->input('content', '');
+        $allowed = ['keywords','columns','tips','suffixes'];
+        if (!in_array($type, $allowed)) {
+            return redirect()->back()->with('error', 'Invalid type');
+        }
+        $slug = $this->slugify($group ?: 'default');
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
+        $this->ensureDirectoryExists($dir);
+
+        $safeName = preg_replace('/[^a-z0-9_\-\.]/i', '_', $name);
+        $path = $dir . DIRECTORY_SEPARATOR . $safeName;
+        file_put_contents($path, $content);
+
+        return redirect()->route('admin.content.resources', ['tab' => $type, 'group' => $group])->with('status', '已添加');
+    }
+
     public function generateAiArticle(Request $request)
     {
         $topic = $request->input('topic', 'Untitled');
@@ -513,7 +890,20 @@ class AdminController extends Controller
 
     public function showContentManage(Request $request)
     {
-        $allArticles = $this->getArticles();
+        // Read articles from data/article
+        $publishedDir = base_path('data') . DIRECTORY_SEPARATOR . 'article' . DIRECTORY_SEPARATOR . 'published';
+        $unpublishedDir = base_path('data') . DIRECTORY_SEPARATOR . 'article' . DIRECTORY_SEPARATOR . 'unpublished';
+        $this->ensureDirectoryExists($publishedDir);
+        $this->ensureDirectoryExists($unpublishedDir);
+
+        $files = array_merge(glob($publishedDir . DIRECTORY_SEPARATOR . '*.json') ?: [], glob($unpublishedDir . DIRECTORY_SEPARATOR . '*.json') ?: []);
+        $all = [];
+        foreach ($files as $f) {
+            $txt = @file_get_contents($f);
+            $data = json_decode($txt, true);
+            if (!$data) continue;
+            $all[] = $data;
+        }
 
         // Filtering
         $source = $request->query('source');
@@ -521,13 +911,16 @@ class AdminController extends Controller
         $from = $request->query('from');
         $to = $request->query('to');
 
-        $filtered = array_filter($allArticles, function ($article) use ($source, $status, $from, $to) {
-            if ($source && $article['source'] !== $source) return false;
-            if ($status && $article['status'] !== $status) return false;
-            if ($from && strtotime($article['created_at']) < strtotime($from)) return false;
-            if ($to && strtotime($article['created_at']) > strtotime($to . ' 23:59:59')) return false;
+        $filtered = array_filter($all, function ($article) use ($source, $status, $from, $to) {
+            if ($source && (!isset($article['source']) || $article['source'] !== $source)) return false;
+            if ($status && (!isset($article['status']) || $article['status'] !== $status)) return false;
+            if ($from && isset($article['created_at']) && strtotime($article['created_at']) < strtotime($from)) return false;
+            if ($to && isset($article['created_at']) && strtotime($article['created_at']) > strtotime($to . ' 23:59:59')) return false;
             return true;
         });
+
+        // Sort by created_at desc
+        usort($filtered, function($a, $b) { return strtotime($b['created_at'] ?? 0) <=> strtotime($a['created_at'] ?? 0); });
 
         // Pagination
         $page = max(1, (int)$request->query('page', 1));
@@ -537,17 +930,96 @@ class AdminController extends Controller
         $paginated = array_slice(array_values($filtered), ($page - 1) * $perPage, $perPage);
 
         return view('admin', [
-            'page' => 'content_manage', 
+            'page' => 'content_manage',
             'articles' => $paginated,
             'total' => $total,
             'currentPage' => $page,
             'pages' => $pages,
             'perPage' => $perPage,
-            'f_source' => $source, 
+            'f_source' => $source,
             'f_status' => $status,
             'f_from' => $from,
             'f_to' => $to
         ]);
+    }
+
+    // List files for a given group and type (keywords, columns, tips, suffixes)
+    public function contentFilesList(Request $request)
+    {
+        $group = (string)$request->query('group', '');
+        $type = (string)$request->query('type', 'keywords');
+        $allowed = ['keywords','columns','tips','suffixes'];
+        if (!in_array($type, $allowed)) {
+            return response()->json(['ok' => false, 'message' => 'Invalid type'], 400);
+        }
+
+        // resolve group slug
+        $slug = $this->slugify($group ?: 'default');
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
+        $this->ensureDirectoryExists($dir);
+        $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+        $list = [];
+        foreach ($files as $f) {
+            if (!is_file($f)) continue;
+            $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f))];
+        }
+        usort($list, function($a,$b){ return $b['mtime'] <=> $a['mtime']; });
+        return response()->json(['ok' => true, 'files' => $list]);
+    }
+
+    // Upload a plain text file for a given group and type
+    public function uploadContentFile(Request $request)
+    {
+        $group = (string)$request->input('group', '');
+        $type = (string)$request->input('type', 'keywords');
+        $allowed = ['keywords','columns','tips','suffixes'];
+        if (!in_array($type, $allowed)) {
+            return response()->json(['ok' => false, 'message' => 'Invalid type'], 400);
+        }
+
+        if (!$request->hasFile('file')) {
+            return response()->json(['ok' => false, 'message' => 'No file uploaded'], 400);
+        }
+        $file = $request->file('file');
+        if (!$file->isValid()) {
+            return response()->json(['ok' => false, 'message' => 'Upload error'], 400);
+        }
+
+        $slug = $this->slugify($group ?: 'default');
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
+        $this->ensureDirectoryExists($dir);
+
+        // move uploaded file to dir with sanitized name
+        $name = preg_replace('/[^a-z0-9_\-\.]/i', '_', $file->getClientOriginalName());
+        $target = $dir . DIRECTORY_SEPARATOR . $name;
+        $file->move($dir, $name);
+
+        return response()->json(['ok' => true, 'message' => 'Uploaded', 'file' => basename($target)]);
+    }
+
+    // Delete a content file
+    public function deleteContentFile(Request $request)
+    {
+        $group = (string)$request->input('group', '');
+        $type = (string)$request->input('type', 'keywords');
+        $file = (string)$request->input('file', '');
+        $allowed = ['keywords','columns','tips','suffixes'];
+        if (!in_array($type, $allowed) || $file === '') {
+            return response()->json(['ok' => false, 'message' => 'Invalid parameters'], 400);
+        }
+        $slug = $this->slugify($group ?: 'default');
+        $path = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type . DIRECTORY_SEPARATOR . basename($file);
+        if (!file_exists($path)) {
+            return response()->json(['ok' => false, 'message' => 'File not found'], 404);
+        }
+        @unlink($path);
+        return response()->json(['ok' => true, 'message' => 'Deleted']);
+    }
+
+    private function slugify($name)
+    {
+        $s = preg_replace('/[^a-z0-9_\-]/i', '_', trim(strtolower($name)));
+        return $s ?: 'default';
     }
 
     private function saveArticle($title, $content, $source)
