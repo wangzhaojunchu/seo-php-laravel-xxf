@@ -34,20 +34,26 @@ class IpAccessControl
             return false;
         };
 
-        // deny precedence
-        if ($matchAny($cfg['deny'] ?? [])) {
-            return response('Access denied (IP blacklisted)', 403);
+        $whitelist = $cfg['allow'] ?? [];
+        $blacklist = $cfg['deny'] ?? [];
+
+        // If the whitelist is configured, only allow IPs in it
+        if (!empty($whitelist)) {
+            if ($matchAny($whitelist)) {
+                return $next($request);
+            }
+            return response('Access denied (not in whitelist)', 403);
         }
 
-        if ($matchAny($cfg['allow'] ?? [])) {
-            return $next($request);
+        // If the blacklist is configured, deny any IP in it
+        if (!empty($blacklist)) {
+            if ($matchAny($blacklist)) {
+                return response('Access denied (IP blacklisted)', 403);
+            }
         }
 
-        // apply default
-        if (($cfg['default'] ?? 'allow') === 'allow') {
-            return $next($request);
-        }
-        return response('Access denied (default deny)', 403);
+        // If no whitelist is set, and the IP is not in the blacklist (or no blacklist is set), allow access.
+        return $next($request);
     }
 
     protected function ipMatches(string $ip, string $pattern): bool

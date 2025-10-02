@@ -16,21 +16,43 @@ class UaAccessControl
 
         $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
         $file = $dir . DIRECTORY_SEPARATOR . 'ua_control.json';
-        $uaList = [];
+        $cfg = ['allow' => [], 'deny' => []];
         if (file_exists($file)) {
-            $uaList = json_decode(file_get_contents($file), true) ?: [];
+            $cfg = json_decode(file_get_contents($file), true) ?: $cfg;
         }
-
-        if (empty($uaList)) return $next($request);
 
         $ua = $request->header('User-Agent', '');
-        foreach ($uaList as $bot) {
-            if ($bot && stripos($ua, $bot) !== false) {
-                // blocked or allowed? we'll treat UA list as allowed bots to track; if you want to block, invert logic
-                // For now, deny bots that match list (treat as block list)
-                return response('Access denied (UA block)', 403);
+
+        // Helper to check if UA string contains any of the patterns
+        $matchAny = function(array $patterns) use ($ua) {
+            if (empty($ua)) return false;
+            foreach ($patterns as $p) {
+                $p = trim($p);
+                if ($p === '') continue;
+                if (stripos($ua, $p) !== false) return true;
+            }
+            return false;
+        };
+
+        $whitelist = $cfg['allow'] ?? [];
+        $blacklist = $cfg['deny'] ?? [];
+
+        // If the whitelist is configured, only allow UAs in it
+        if (!empty($whitelist)) {
+            if ($matchAny($whitelist)) {
+                return $next($request);
+            }
+            return response('Access denied (UA not in whitelist)', 403);
+        }
+
+        // If the blacklist is configured, deny any UA in it
+        if (!empty($blacklist)) {
+            if ($matchAny($blacklist)) {
+                return response('Access denied (UA blacklisted)', 403);
             }
         }
+
+        // If no whitelist is set, and the UA is not in the blacklist, allow access.
         return $next($request);
     }
 }

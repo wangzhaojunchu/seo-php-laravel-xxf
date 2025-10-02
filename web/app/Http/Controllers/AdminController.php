@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
@@ -17,7 +18,6 @@ class AdminController extends Controller
             'uptime' => trim(@shell_exec('uptime -p') ?: ''),
             'memory_usage' => memory_get_usage(true),
         ];
-        // Prefer daily log files (access-YYYY-MM-DD.log). Fall back to the most recent matching file if today's is missing.
         $access = null;
         $spiders = null;
         $todayAccess = storage_path('logs') . DIRECTORY_SEPARATOR . 'access-' . date('Y-m-d') . '.log';
@@ -27,7 +27,6 @@ class AdminController extends Controller
         if (file_exists($todayAccess)) {
             $accessFile = $todayAccess;
         } else {
-            // glob with forward slash pattern is more portable on Windows
             $files = glob(storage_path('logs') . DIRECTORY_SEPARATOR . 'access-*.log');
             if (!empty($files)) {
                 usort($files, function($a, $b) { return filemtime($b) <=> filemtime($a); });
@@ -68,21 +67,88 @@ class AdminController extends Controller
     public function updatePassword(Request $request)
     {
         $pwFile = base_path('data') . DIRECTORY_SEPARATOR . 'password.txt';
-        if (!is_dir(dirname($pwFile))) {
-            @mkdir(dirname($pwFile), 0755, true);
-        }
+        $this->ensureDirectoryExists(dirname($pwFile));
         $new = (string)$request->input('new_password', '');
         if (trim($new) === '') {
             return redirect()->route('admin.password')->withErrors(['new_password' => 'New password cannot be empty']);
         }
         file_put_contents($pwFile, $new);
+        $this->logOperation("Password updated");
         return redirect()->route('admin.password')->with('status', 'Password updated successfully');
+    }
+
+    public function operationLogs(Request $request)
+    {
+        $date = $request->query('date', date('Y-m-d'));
+        $validator = Validator::make($request->all(), [
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+            'q' => 'nullable|string|max:256',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:10|max:200',
+        ]);
+        if ($validator->fails()) {
+            return redirect()->route('admin.operation_logs')->withErrors($validator)->withInput();
+        }
+        
+        $from = $request->query('from', $date);
+        $to = $request->query('to', $date);
+        $q = $request->query('q', null);
+        $page = max(1, (int)$request->query('page', 1));
+        $per = max(10, min(200, (int)$request->query('per_page', 20)));
+
+        try {
+            $periodStart = new \DateTime($from);
+            $periodEnd = new \DateTime($to);
+        } catch (\Exception $e) {
+            $periodStart = new \DateTime($date);
+            $periodEnd = new \DateTime($date);
+        }
+        if ($periodEnd < $periodStart) {
+            $t = $periodStart; $periodStart = $periodEnd; $periodEnd = $t;
+        }
+
+        $entries = [];
+        $d = clone $periodStart;
+        while ($d <= $periodEnd) {
+            $day = $d->format('Y-m-d');
+            $file = storage_path("logs/operation-{$day}.log");
+            if (file_exists($file)) {
+                $lines = array_map('trim', file($file));
+                foreach ($lines as $ln) {
+                    if ($ln === '') continue;
+                    $parts = preg_split('/\t+/', $ln);
+                    $row = [
+                        'datetime' => $parts[0] ?? '',
+                        'ip' => $parts[1] ?? '',
+                        'message' => $parts[2] ?? '',
+                        'raw' => $ln,
+                    ];
+                    if ($q && stripos($row['message'], $q) === false && stripos($row['ip'], $q) === false) continue;
+                    $entries[] = $row;
+                }
+            }
+            $d->modify('+1 day');
+        }
+
+        $total = count($entries);
+        $pages = max(1, ceil($total / $per));
+        $slice = array_slice(array_reverse($entries), ($page-1)*$per, $per);
+
+        return view('admin', ['page' => 'operation_logs', 'logs' => $slice, 'total' => $total, 'currentPage' => $page, 'pages' => $pages, 'date' => $date, 'from' => $from, 'to' => $to, 'q' => $q, 'per' => $per]);
+    }
+
+    private function logOperation(string $message)
+    {
+        $file = storage_path('logs/operation-' . date('Y-m-d') . '.log');
+        $ip = request()->ip();
+        $line = date('Y-m-d H:i:s') . "\t" . $ip . "\t" . $message . "\n";
+        file_put_contents($file, $line, FILE_APPEND);
     }
 
     public function logs(Request $request)
     {
         $date = $request->query('date', date('Y-m-d'));
-        // validate inputs
         $validator = Validator::make($request->all(), [
             'from' => 'nullable|date',
             'to' => 'nullable|date',
@@ -101,11 +167,10 @@ class AdminController extends Controller
         $ip = $request->query('ip', null);
         $status = $request->query('status', null);
         $q = $request->query('q', null);
-    $page = max(1, (int)$request->query('page', 1));
-    $per = max(10, min(200, (int)$request->query('per_page', 20)));
+        $page = max(1, (int)$request->query('page', 1));
+        $per = max(10, min(200, (int)$request->query('per_page', 20)));
         $download = $request->query('download', null);
 
-        // Build date range
         try {
             $periodStart = new \DateTime($from);
             $periodEnd = new \DateTime($to);
@@ -114,7 +179,6 @@ class AdminController extends Controller
             $periodEnd = new \DateTime($date);
         }
         if ($periodEnd < $periodStart) {
-            // swap
             $t = $periodStart; $periodStart = $periodEnd; $periodEnd = $t;
         }
 
@@ -140,7 +204,6 @@ class AdminController extends Controller
                         'url' => $parts[4] ?? '',
                         'raw' => $ln,
                     ];
-                    // apply filters
                     if ($ip && stripos($row['ip'], $ip) === false) continue;
                     if ($status && (string)$row['status'] !== (string)$status) continue;
                     if ($q && stripos($row['url'], $q) === false && stripos($row['ip'], $q) === false) continue;
@@ -151,7 +214,6 @@ class AdminController extends Controller
             $d->modify('+1 day');
         }
 
-        // filtered list ready in $entries
         $filtered = $entries;
 
         if ($download === 'access') {
@@ -169,7 +231,6 @@ class AdminController extends Controller
         $pages = max(1, ceil($total / $per));
         $slice = array_slice(array_reverse(array_values($filtered)), ($page-1)*$per, $per);
 
-        // prepare chart data arrays in same order as labels
         $chartCounts = [];
         foreach ($labels as $lab) {
             $chartCounts[] = $counts[$lab] ?? 0;
@@ -198,8 +259,8 @@ class AdminController extends Controller
         $bot = $request->query('bot', null);
         $ip = $request->query('ip', null);
         $q = $request->query('q', null);
-    $page = max(1, (int)$request->query('page', 1));
-    $per = max(10, min(200, (int)$request->query('per_page', 20)));
+        $page = max(1, (int)$request->query('page', 1));
+        $per = max(10, min(200, (int)$request->query('per_page', 20)));
         $download = $request->query('download', null);
 
         try {
@@ -267,7 +328,7 @@ class AdminController extends Controller
             $chartCounts[] = $counts[$lab] ?? 0;
         }
 
-    return view('admin', ['page' => 'spiders', 'spiderLogs' => $slice, 'total' => $total, 'currentPage' => $page, 'pages' => $pages, 'date' => $date, 'from' => $from, 'to' => $to, 'bot' => $bot, 'ip' => $ip, 'q' => $q, 'per' => $per, 'chartLabels' => $labels, 'chartCounts' => $chartCounts]);
+        return view('admin', ['page' => 'spiders', 'spiderLogs' => $slice, 'total' => $total, 'currentPage' => $page, 'pages' => $pages, 'date' => $date, 'from' => $from, 'to' => $to, 'bot' => $bot, 'ip' => $ip, 'q' => $q, 'per' => $per, 'chartLabels' => $labels, 'chartCounts' => $chartCounts]);
     }
 
     public function repair()
@@ -335,9 +396,8 @@ class AdminController extends Controller
 
     public function sites()
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'sites.json';
+        $file = base_path('data/access/sites.json');
+        $this->ensureDirectoryExists(dirname($file));
         $sites = [];
         if (file_exists($file)) {
             $sites = json_decode(file_get_contents($file), true) ?: [];
@@ -347,21 +407,18 @@ class AdminController extends Controller
 
     public function saveSites(Request $request)
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'sites.json';
+        $file = base_path('data/access/sites.json');
+        $this->ensureDirectoryExists(dirname($file));
         $input = $request->input('sites', '');
-        $sites = preg_split('/\r?\n/', trim($input));
-        $sites = array_values(array_filter(array_map('trim', $sites)));
+        $sites = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($input)))));
         file_put_contents($file, json_encode($sites, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.sites')->with('status', 'Sites saved');
     }
 
     public function models()
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'models.json';
+        $file = base_path('data/access/models.json');
+        $this->ensureDirectoryExists(dirname($file));
         $models = [];
         if (file_exists($file)) {
             $models = json_decode(file_get_contents($file), true) ?: [];
@@ -371,68 +428,178 @@ class AdminController extends Controller
 
     public function saveModels(Request $request)
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'models.json';
+        $file = base_path('data/access/models.json');
+        $this->ensureDirectoryExists(dirname($file));
         $input = $request->input('models', '');
-        $models = preg_split('/\r?\n/', trim($input));
-        $models = array_values(array_filter(array_map('trim', $models)));
+        $models = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($input)))));
         file_put_contents($file, json_encode($models, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.models')->with('status', 'Models saved');
     }
 
     public function accessIp()
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'ip_control.json';
-        $cfg = ['default' => 'allow', 'allow' => [], 'deny' => []];
+        $file = base_path('data/access/ip_control.json');
+        $this->ensureDirectoryExists(dirname($file));
+        $cfg = ['allow' => [], 'deny' => []];
         if (file_exists($file)) {
             $cfg = json_decode(file_get_contents($file), true) ?: $cfg;
         }
-        return view('admin', ['page' => 'access_ip', 'ipDefault' => ($cfg['default'] ?? 'allow'), 'ipAllow' => ($cfg['allow'] ?? []), 'ipDeny' => ($cfg['deny'] ?? [])]);
+        return view('admin', ['page' => 'access_ip', 'ipAllow' => ($cfg['allow'] ?? []), 'ipDeny' => ($cfg['deny'] ?? [])]);
     }
 
     public function saveAccessIp(Request $request)
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'ip_control.json';
-        $mode = $request->input('default_mode', 'allow');
+        $file = base_path('data/access/ip_control.json');
+        $this->ensureDirectoryExists(dirname($file));
         $allowRaw = $request->input('allow_ips', '');
         $denyRaw = $request->input('deny_ips', '');
         $allow = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($allowRaw)))));
         $deny = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($denyRaw)))));
-        $cfg = ['default' => in_array($mode, ['allow','deny']) ? $mode : 'allow', 'allow' => $allow, 'deny' => $deny];
+        $cfg = ['allow' => $allow, 'deny' => $deny];
         file_put_contents($file, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.access.ip')->with('status', 'IP rules saved');
     }
 
     public function accessUa()
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'ua_control.json';
-        $ua = [];
+        $file = base_path('data/access/ua_control.json');
+        $this->ensureDirectoryExists(dirname($file));
+        $cfg = ['allow' => [], 'deny' => []];
         if (file_exists($file)) {
-            $ua = json_decode(file_get_contents($file), true) ?: [];
+            $cfg = json_decode(file_get_contents($file), true) ?: $cfg;
         }
-        $common = [
-            'Googlebot','Bingbot','Baiduspider','YandexBot','DuckDuckBot','Sogou','Exabot','AhrefsBot','SemrushBot','MJ12bot','DotBot','Baiduspider-image'
-        ];
-        return view('admin', ['page' => 'access_ua', 'uaList' => $ua, 'availableBots' => $common]);
+        return view('admin', ['page' => 'access_ua', 'uaAllow' => ($cfg['allow'] ?? []), 'uaDeny' => ($cfg['deny'] ?? [])]);
     }
 
     public function saveAccessUa(Request $request)
     {
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'access';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        $file = $dir . DIRECTORY_SEPARATOR . 'ua_control.json';
-        $selected = $request->input('bots', []);
-        if (!is_array($selected)) {
-            $selected = [$selected];
-        }
-        file_put_contents($file, json_encode(array_values($selected), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $file = base_path('data/access/ua_control.json');
+        $this->ensureDirectoryExists(dirname($file));
+        $allowRaw = $request->input('allow_uas', '');
+        $denyRaw = $request->input('deny_uas', '');
+        $allow = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($allowRaw)))));
+        $deny = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($denyRaw)))));
+        $cfg = ['allow' => $allow, 'deny' => $deny];
+        file_put_contents($file, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.access.ua')->with('status', 'UA rules saved');
+    }
+
+    // --- Content Management Methods ---
+
+    public function showContentAi()
+    {
+        return view('admin', ['page' => 'content_ai']);
+    }
+
+    public function showContentCollection()
+    {
+        return view('admin', ['page' => 'content_collection']);
+    }
+
+    public function generateAiArticle(Request $request)
+    {
+        $topic = $request->input('topic', 'Untitled');
+        
+        // ##################################################################
+        // ### PLACEHOLDER - REAL AI API CALL REQUIRED ###
+        // ##################################################################
+        $fakeContent = "This is a simulated AI-generated article about `{$topic}`.\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi.";
+        // ##################################################################
+
+        $this->saveArticle($topic, $fakeContent, 'AI');
+
+        return redirect()->route('admin.content.manage')->with('status', 'Simulated article generated and saved as unpublished.');
+    }
+
+    public function showContentManage(Request $request)
+    {
+        $allArticles = $this->getArticles();
+
+        // Filtering
+        $source = $request->query('source');
+        $status = $request->query('status');
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        $filtered = array_filter($allArticles, function ($article) use ($source, $status, $from, $to) {
+            if ($source && $article['source'] !== $source) return false;
+            if ($status && $article['status'] !== $status) return false;
+            if ($from && strtotime($article['created_at']) < strtotime($from)) return false;
+            if ($to && strtotime($article['created_at']) > strtotime($to . ' 23:59:59')) return false;
+            return true;
+        });
+
+        // Pagination
+        $page = max(1, (int)$request->query('page', 1));
+        $perPage = 10;
+        $total = count($filtered);
+        $pages = max(1, ceil($total / $perPage));
+        $paginated = array_slice(array_values($filtered), ($page - 1) * $perPage, $perPage);
+
+        return view('admin', [
+            'page' => 'content_manage', 
+            'articles' => $paginated,
+            'total' => $total,
+            'currentPage' => $page,
+            'pages' => $pages,
+            'perPage' => $perPage,
+            'f_source' => $source, 
+            'f_status' => $status,
+            'f_from' => $from,
+            'f_to' => $to
+        ]);
+    }
+
+    private function saveArticle($title, $content, $source)
+    {
+        $dir = base_path('data/article/unpublished');
+        $this->ensureDirectoryExists($dir);
+        $id = Str::uuid();
+        $article = [
+            'id' => $id,
+            'title' => $title,
+            'content' => $content,
+            'source' => $source,
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
+        file_put_contents("$dir/{$id}.json", json_encode($article, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function getArticles()
+    {
+        $publishedDir = base_path('data/article/published');
+        $unpublishedDir = base_path('data/article/unpublished');
+        $this->ensureDirectoryExists($publishedDir);
+        $this->ensureDirectoryExists($unpublishedDir);
+
+        $articles = [];
+        $publishedFiles = glob("$publishedDir/*.json");
+        $unpublishedFiles = glob("$unpublishedDir/*.json");
+
+        foreach ($publishedFiles as $file) {
+            $data = json_decode(file_get_contents($file), true);
+            if ($data) {
+                $data['status'] = 'published';
+                $articles[] = $data;
+            }
+        }
+        foreach ($unpublishedFiles as $file) {
+            $data = json_decode(file_get_contents($file), true);
+            if ($data) {
+                $data['status'] = 'unpublished';
+                $articles[] = $data;
+            }
+        }
+
+        usort($articles, fn($a, $b) => strtotime($b['created_at']) <=> strtotime($a['created_at']));
+
+        return $articles;
+    }
+
+    private function ensureDirectoryExists($path)
+    {
+        if (!is_dir($path)) {
+            @mkdir($path, 0755, true);
+        }
     }
 }

@@ -44,6 +44,8 @@ Route::post('/admin/password', [AdminController::class, 'updatePassword'])->midd
 
 Route::get('/admin/logs', [AdminController::class, 'logs'])->middleware('admin.auth')->name('admin.logs');
 
+Route::get('/admin/operation-logs', [AdminController::class, 'operationLogs'])->middleware('admin.auth')->name('admin.operation_logs');
+
 Route::get('/admin/spiders', [AdminController::class, 'spiders'])->middleware('admin.auth')->name('admin.spiders');
 
 Route::get('/admin/repair', [AdminController::class, 'repair'])->middleware('admin.auth')->name('admin.repair');
@@ -72,4 +74,10 @@ Route::post('/admin/access/ip', [AdminController::class, 'saveAccessIp'])->middl
 Route::get('/admin/access/ua', [AdminController::class, 'accessUa'])->middleware('admin.auth')->name('admin.access.ua');
 
 Route::post('/admin/access/ua', [AdminController::class, 'saveAccessUa'])->middleware('admin.auth')->name('admin.access.ua.save');
+
+// 内容管理
+Route::get('/admin/content/ai', [AdminController::class, 'showContentAi'])->middleware('admin.auth')->name('admin.content.ai');
+Route::post('/admin/content/ai', [AdminController::class, 'generateAiArticle'])->middleware('admin.auth')->name('admin.content.ai.generate');
+Route::get('/admin/content/manage', [AdminController::class, 'showContentManage'])->middleware('admin.auth')->name('admin.content.manage');
+Route::get('/admin/content/collection', [AdminController::class, 'showContentCollection'])->middleware('admin.auth')->name('admin.content.collection');
 
