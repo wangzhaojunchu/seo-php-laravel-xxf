@@ -1,0 +1,12 @@
+{
+    "name": "水电费",
+    "key": "group",
+    "domains": [
+        "胜多负少"
+    ],
+    "force_www": false,
+    "force_mobile": false,
+    "model": null,
+    "template": null,
+    "created_at": "2025-10-03 06:58:56"
+}

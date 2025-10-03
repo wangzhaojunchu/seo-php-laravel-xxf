@@ -1,0 +1,11 @@
+{
+    "name": "2",
+    "domains": [
+        "domain"
+    ],
+    "force_www": false,
+    "force_mobile": false,
+    "model": "1",
+    "template": null,
+    "created_at": "2025-10-02 08:46:03"
+}

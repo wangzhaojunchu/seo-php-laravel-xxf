@@ -2103,15 +2103,27 @@
             };
 
             // Replace the existing '添加' buttons with modal triggers where appropriate
-            // Add click handlers to existing edit links
+            // Add click handlers to existing edit links. Also provide a delegation fallback
             try{
                 // For groups: change loadGroup to open modal
                 window.loadGroup = function(g){ openGroupModal(g); };
                 // For models: change editModel to open modal
                 window.editModel = function(m){ openModelModal(m); };
-                // Open add group modal
+                // Open add group/modal via direct binding where possible
                 document.getElementById('openAddGroupBtn')?.addEventListener('click', function(){ openGroupModal(null); });
+                document.getElementById('openAddModelBtn')?.addEventListener('click', function(){ if(window.openModelModal) openModelModal(null); });
             }catch(e){ console.error(e); }
+
+            // Delegation fallback: if direct binding didn't run or elements are dynamically inserted,
+            // catch clicks on likely Add buttons and trigger the modal handlers.
+            document.addEventListener('click', function(e){
+                try{
+                    var gBtn = e.target.closest && e.target.closest('#openAddGroupBtn, #sitesTabAddBtn, .open-group, [data-open-group]');
+                    if(gBtn){ e.preventDefault(); if(window.openGroupModal) openGroupModal(null); return; }
+                    var mBtn = e.target.closest && e.target.closest('#openAddModelBtn, #modelsTabAddBtn, .open-model, [data-open-model]');
+                    if(mBtn){ e.preventDefault(); if(window.openModelModal) openModelModal(null); return; }
+                }catch(_){}
+            });
         })();
     </script>
     <script>
