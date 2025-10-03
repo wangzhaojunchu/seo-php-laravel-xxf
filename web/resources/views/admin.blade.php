@@ -27,8 +27,9 @@
         .topbar{background:transparent}
     .panel{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 6px 20px rgba(2,6,23,0.06);transition:background .2s,box-shadow .2s}
     .content-inner{overflow:auto}
-    table{width:100%;border-collapse:collapse}
-    table, table th, table td{border:1px solid rgba(0,0,0,0.06)}
+    /* Stronger visible borders for all tables site-wide */
+    table{width:100%;border-collapse:collapse;border:1px solid rgba(0,0,0,0.08)}
+    table, table th, table td{border:1px solid rgba(0,0,0,0.08)}
     table th, table td{padding:6px 8px}
     pre.log{background:#071226;color:#cfe8ff;padding:8px;border-radius:6px;overflow:auto;max-height:400px;font-family:Menlo,Consolas,monospace;font-size:12px}
         .muted{color:var(--muted)}
@@ -181,7 +182,7 @@
                     <span class="caret" data-caret-for="core-settings">›</span>
                 </div>
                 <div class="submenu" data-section="core-settings">
-                    <a href="{{ route('admin.settings') }}" class="{{ ($page ?? '') === 'settings' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-settings"></use></svg></span>系统设置</a>
+                    <a href="{{ route('admin.settings') }}" class="{{ ($page ?? '') === 'settings' ? 'active' : '' }}" data-config="data/settings.json"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-settings"></use></svg></span>系统设置</a>
                     <a href="{{ route('admin.password') }}" class="{{ ($page ?? '') === 'password' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-password"></use></svg></span>修改密码</a>
                     <a href="{{ route('admin.operation_logs') }}" class="{{ ($page ?? '') === 'operation_logs' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-operation"></use></svg></span>操作日志</a>
                     <a href="{{ route('admin.repair') }}" class="{{ ($page ?? '') === 'repair' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-repair"></use></svg></span>系统修复</a>
@@ -192,9 +193,14 @@
                     站群管理
                     <span class="caret" data-caret-for="sites">›</span>
                 </div>
+                @php $ctab = request()->query('tab') ?? 'keywords'; @endphp
                 <div class="submenu" data-section="sites">
-                    <a href="{{ route('admin.sites') }}" class="{{ ($page ?? '') === 'sites' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-sites"></use></svg></span>网站管理</a>
-                    <a href="{{ route('admin.models') }}" class="{{ ($page ?? '') === 'models' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-models"></use></svg></span>模型管理</a>
+                    <a href="{{ route('admin.sites') }}" class="{{ ($page ?? '') === 'sites' ? 'active' : '' }}" data-config="data/sites.json"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-sites"></use></svg></span>网站管理</a>
+                    <a href="{{ route('admin.models') }}" class="{{ ($page ?? '') === 'models' ? 'active' : '' }}" data-config="data/models.json"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-models"></use></svg></span>模型管理</a>
+                    <a href="{{ route('admin.content.resources') }}?tab=keywords" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'keywords' ? 'active' : '' }}" data-config="data/group/{group}/{type}/"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>关键词管理</a>
+                    <a href="{{ route('admin.content.resources') }}?tab=columns" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'columns' ? 'active' : '' }}" data-config="data/group/{group}/{type}/"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>栏目管理</a>
+                    <a href="{{ route('admin.content.resources') }}?tab=tips" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'tips' ? 'active' : '' }}" data-config="data/group/{group}/{type}/"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>Tips 管理</a>
+                    <a href="{{ route('admin.content.resources') }}?tab=suffixes" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'suffixes' ? 'active' : '' }}" data-config="data/group/{group}/{type}/"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>标题后缀</a>
                 </div>
 
                 <div class="section-toggle" data-section="content" role="button" tabindex="0">
@@ -204,14 +210,9 @@
                 </div>
                     <div class="submenu" data-section="content">
                     <a href="{{ route('admin.content.ai') }}" class="{{ ($page ?? '') === 'content_ai' ? 'active' : '' }}"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17.5 19H9a7 7 0 1 1 0-14h8.5a5.5 5.5 0 1 1 0 11z"/></svg></span>AI 生成</a>
-                    <a href="{{ route('admin.content.manage') }}" class="{{ ($page ?? '') === 'content_manage' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>内容列表</a>
-                    @php $ctab = request()->query('tab') ?? 'keywords'; @endphp
-                    <a href="{{ route('admin.content.resources') }}?tab=keywords" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'keywords' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>关键词管理</a>
-                    <a href="{{ route('admin.content.resources') }}?tab=columns" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'columns' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>栏目管理</a>
-                    <a href="{{ route('admin.content.resources') }}?tab=tips" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'tips' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>Tips 管理</a>
-                    <a href="{{ route('admin.content.resources') }}?tab=suffixes" class="{{ ($page ?? '') === 'content_resources' && $ctab === 'suffixes' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>标题后缀</a>
+                    <a href="{{ route('admin.content.manage') }}" class="{{ ($page ?? '') === 'content_manage' ? 'active' : '' }}" data-config="data/article/published/ , data/article/unpublished/"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-list"></use></svg></span>内容列表</a>
                     <a href="{{ route('admin.content.collection') }}" class="{{ ($page ?? '') === 'content_collection' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-collection"></use></svg></span>采集管理</a>
-                    <a href="{{ route('admin.api') }}" class="{{ ($page ?? '') === 'api_management' ? 'active' : '' }}"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-api"></use></svg></span>API 管理</a>
+                    <a href="{{ route('admin.api') }}" class="{{ ($page ?? '') === 'api_management' ? 'active' : '' }}" data-config="data/api/config.json"><span class="icon"><svg class="icon" viewBox="0 0 24 24"><use xlink:href="#icon-api"></use></svg></span>API 管理</a>
                 </div>
 
                 <div class="section-toggle" data-section="access" role="button" tabindex="0">
@@ -228,6 +229,77 @@
             </nav>
         </aside>
         <main class="content">
+            <style>
+                /* Improve table readability: subtle striping and padded content blocks */
+                .content-inner { background: #f8fafc; padding: 8px; border-radius: 8px; }
+                /* Generic card/panel class to replace inline white panels */
+                .card { background: var(__card); padding: 14px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+                .card .card-header { display:flex;align-items:center;gap:12px;margin-bottom:10px }
+                .card .card-body { margin-top:8px }
+                /* Alert boxes (errors/warnings) */
+                .alert { padding:8px;border-radius:6px;margin-bottom:12px }
+                .alert-error { background:#fff6f6;color:#9b1c1c;border:1px solid #ffd3d3 }
+                .theme-dark .alert { background: #0e1b26 !important; color: #ffd6d6 !important; border-color: rgba(255,100,100,0.12) !important; }
+                .content-inner table { width:100%; border-collapse:collapse; }
+                .content-inner table tbody tr:nth-child(odd) { background: #ffffff; }
+                .content-inner table tbody tr:nth-child(even) { background: #fbfdff; }
+                .content-inner table th, .content-inner table td { padding: 8px 10px; }
+                /* Apply similar readable styles to other admin tables */
+                table { border-collapse: collapse; }
+                table th { background: rgba(0,0,0,0.04); color: #111827; padding: 8px 10px; text-align: left; }
+                table td { padding: 8px 10px; }
+                table tbody tr:nth-child(odd) td { background: #ffffff; }
+                table tbody tr:nth-child(even) td { background: #fbfdff; }
+                /* Ensure table text color contrasts with background in both light/dark themes */
+                .theme-light table td, .theme-light table th { color: #111827; }
+                .theme-dark table td, .theme-dark table th { color: #e6eef8; }
+                /* Dark theme: use dark row backgrounds and darker container to avoid light-on-light issues */
+                .theme-dark .content-inner { background: #071026; }
+                .theme-dark table tbody tr:nth-child(odd) td { background: #081524; }
+                .theme-dark table tbody tr:nth-child(even) td { background: #06101c; }
+                .theme-dark table th { background: rgba(255,255,255,0.04); }
+                /* Specific fix for Sites/Models list links to ensure visibility */
+                /* Success alerts */
+                .alert-success { background: #ecffed; color: #064e2a; border: 1px solid rgba(6,78,42,0.06); }
+                .theme-dark .alert-success { background: #06231a !important; color: #9be6c9 !important; border-color: rgba(155, 222, 199, 0.06) !important; }
+                /* Pager current state (replaces inline background usage) */
+                .pager-current { background: rgba(0,0,0,0.06); }
+                .theme-dark .pager-current { background: rgba(255,255,255,0.06); }
+                /* Small pager summary box (replaces inline white box) */
+                .pager-summary { padding:6px 8px; border-radius:6px; display:inline-block; background:#fff; }
+                .theme-dark .pager-summary { background: #071026 !important; color: #e6eef8 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.6) !important; }
+                .theme-light a { color: #0b60d0; }
+                .theme-dark a { color: #9cc7ff; }
+                /* Override common inline white card backgrounds in dark mode to avoid visible white borders */
+                .theme-dark [style*="background:#fff"] { background-color: #071026 !important; color: #e6eef8 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.6) !important; }
+                /* Catch common inline white backgrounds / small light panels and neutralize them in dark mode */
+                .theme-dark [style*="background:#fff"],
+                .theme-dark [style*="background: #fff"],
+                .theme-dark [style*="background:#ffffff"],
+                .theme-dark [style*="background:#fff;"],
+                .theme-dark [style*="background: #fff;"],
+                .theme-dark [style*="background:#fff "] {
+                    background-color: #071026 !important;
+                    color: #e6eef8 !important;
+                    box-shadow: none !important;
+                    border-color: rgba(255,255,255,0.04) !important;
+                }
+                .theme-dark [style*="background: rgba(0,0,0,0.02)"],
+                .theme-dark [style*="background:rgba(0,0,0,0.02)"] {
+                    background: rgba(255,255,255,0.02) !important;
+                }
+                /* Inline borders often use rgba(0,0,0,0.06) — make them subtle in dark theme */
+                .theme-dark [style*="border:1px solid rgba(0,0,0,0.06)"],
+                .theme-dark [style*="border: 1px solid rgba(0,0,0,0.06)"] {
+                    border-color: rgba(255,255,255,0.04) !important;
+                }
+                /* Prevent bright outlines/box-shadows from inline-styled elements */
+                .theme-dark [style*="box-shadow"], .theme-dark [style*="box-shadow:"] { box-shadow: none !important; }
+                .theme-dark .btn { box-shadow: none; }
+                /* Remove bright focus outlines/ rings in dark mode for elements that may get them via browser defaults or inline styles */
+                .theme-dark :where(button, a, input, textarea, select):focus { outline: none !important; box-shadow: 0 0 0 2px rgba(255,255,255,0.02) !important; }
+                .theme-dark :where(button[style*="background:#"], [style*="background:#fff"]) { box-shadow: none !important; }
+            </style>
             <div class="topbar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
                 <div style="font-size:18px;font-weight:600">
                     @php
@@ -249,7 +321,7 @@
                             'access_ua' => '访问 UA 控制',
                         ];
                     @endphp
-                    {{ $titles[$page ?? 'home'] ?? ucfirst($page ?? 'Unknown') }}
+                    {{ $titles[$page ?? 'home'] ?? ($page ? ucfirst($page) : '未知') }}
                 </div>
                 <div style="display:flex;gap:12px;align-items:center">
                     <a class="btn" href="/" style="background:transparent;color:var(--muted);border:1px solid rgba(0,0,0,0.04);height:34px;padding:6px 10px">主页</a>
@@ -297,125 +369,177 @@
                 @elseif(($page ?? '') === 'settings')
                     <h2>系统设置</h2>
                     <p class="muted">系统设置占位。这里可以放置站点配置、环境检查、缓存设置等。</p>
+                    <hr style="margin:12px 0;border:none;border-top:1px solid rgba(0,0,0,0.06)">
+                    <h3>后台路径配置</h3>
+                    <p class="muted">为了提高安全性，你可以自定义后台访问路径（例如将 <code>/admin</code> 改为 <code>/管理面板</code> 或其他）。请仅使用字母、数字、下划线或短横线。</p>
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
+                    <form method="POST" action="{{ route('admin.settings.save') }}" style="display:flex;gap:8px;align-items:center">
+                        @csrf
+                        <label class="small" style="margin:0">后台路径前缀</label>
+                        <input type="text" name="admin_prefix" value="{{ $admin_config['prefix'] ?? 'admin' }}" style="padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
+                        <button class="btn" type="submit">保存</button>
+                    </form>
 
                 @elseif(($page ?? '') === 'sites')
                     <h2>站点分组管理</h2>
-                    @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
 
-                    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-                        <div style="flex:1;min-width:320px">
-                            <h3>分组列表</h3>
-                            @if(empty($groups))
-                                <p class="muted">尚未配置任何分组。</p>
-                            @else
+                    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px">
+                        <div class="card" style="min-width:360px;flex:2;">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                                <h4 style="margin:0">分组管理</h4>
+                                <div style="margin-left:12px;display:flex;gap:6px">
+                                    <button id="sitesTabListBtn" class="btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);padding:6px 10px">列表</button>
+                                    <button id="sitesTabAddBtn" class="btn" style="background:#06c;color:#fff;padding:6px 10px">添加分组</button>
+                                </div>
+                                <div style="margin-left:auto;color:var(--muted)">共 <strong>{{ count($groups ?? []) }}</strong> 个分组</div>
+                            </div>
+
+                            <div id="sitesListPanel">
+                                @if(empty($groups))
+                                    <div class="muted">尚未配置任何分组。</div>
+                                @else
+                                    <table>
+                                        <thead><tr><th>分组名</th><th>域名数量</th><th>默认模型</th><th>操作</th></tr></thead>
+                                        <tbody>
+                                        @foreach($groups as $g)
+                                            <tr>
+                                                <td>{{ $g['name'] ?? '(unnamed)' }}</td>
+                                                <td>{{ isset($g['domains']) ? count($g['domains']) : 0 }}</td>
+                                                <td>{{ $g['model'] ?? '' }}</td>
+                                                <td>
+                                                    <?php $g_b64 = base64_encode(json_encode($g, JSON_UNESCAPED_UNICODE)); ?>
+                                                    <a href="#" class="group-edit-link" data-group-b64='{{ $g_b64 }}'>编辑</a>
+                                                    <a href="#" class="group-remove-link" data-group-name="{{ $g['name'] ?? '' }}" style="color:#dc3545;margin-left:8px">删除</a>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                        </tbody>
+                                    </table>
+                                @endif
+                            </div>
+
+                            <div id="sitesAddPanel" style="display:none">
+                                <div style="display:flex;justify-content:space-between;align-items:center">
+                                    <h3 id="groupFormTitle">分组</h3>
+                                    <button type="button" class="btn" id="openAddGroupBtn">添加分组</button>
+                                </div>
+                                <!-- keep inline form as fallback but hide it in favor of modal -->
+                                <div id="groupFormContainer" style="margin-top:12px">
+                                    <p class="muted">使用弹窗添加或编辑分组。若弹窗不可用会回退到下面的备用表单。</p>
+                                    <div style="display:none">
+                                        <h4>添加分组 (备用表单)</h4>
+                                        <form method="POST" action="{{ route('admin.sites.save') }}" id="groupForm">
+                                            @csrf
+                                            <input type="hidden" name="groups_json" id="groups_json_input">
+                                            <div style="margin-top:8px">
+                                                <label class="small">分组名称</label>
+                                                <input type="text" name="group_name" id="group_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
+                                            </div>
+                                            <div style="margin-top:8px">
+                                                <label class="small">域名 (每行一条)</label>
+                                                <textarea name="group_domains" id="group_domains" style="width:100%;min-height:120px;border:1px solid rgba(0,0,0,0.06);padding:8px;border-radius:8px"></textarea>
+                                            </div>
+                                            <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+                                                <label><input type="checkbox" name="force_www" id="force_www"> 强制跳转到 www</label>
+                                                <label><input type="checkbox" name="force_mobile" id="force_mobile"> 移动端跳转到 m.wap</label>
+                                            </div>
+                                            <div style="margin-top:8px">
+                                                <label class="small">默认模型</label>
+                                                <input type="text" name="group_model" id="group_model" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" placeholder="模型 key，例如: default_model">
+                                            </div>
+                                            <div style="margin-top:8px">
+                                                <label class="small">模板 (可选)</label>
+                                                <input type="text" name="group_template" id="group_template" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" placeholder="模板名或路径">
+                                            </div>
+                                            <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" type="submit">保存分组</button><button type="button" id="exportGroupsBtn" class="btn" style="background:#6b7280">导出 JSON</button></div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Descriptions Manager (optional) -->
+                    @if(!empty($show_descriptions))
+                        <hr style="margin:18px 0;border:none;border-top:1px solid rgba(0,0,0,0.06)" />
+                        <h3>描述管理（Desriptions）</h3>
+                        <p class="muted">可为每个分组定义描述模板。模板中可使用变量：{keyword}, {tips}, {ip}, {time}</p>
+                        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+                            <label class="small">选择分组</label>
+                            <select id="desc_group_select" style="padding:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.06)">
+                                @foreach($groups as $g)
+                                    @php $gkey = $g['key'] ?? ($g['name'] ?? ''); @endphp
+                                    <option value="{{ $gkey }}" {{ (isset($descriptions_group) && $descriptions_group === $gkey) ? 'selected' : '' }}>{{ $g['name'] ?? $gkey }}</option>
+                                @endforeach
+                            </select>
+                            <div style="margin-left:auto"><button id="addDescriptionBtn" class="btn">添加模板</button></div>
+                        </div>
+
+                        <div id="descriptionsList" style="background:rgba(0,0,0,0.02);padding:8px;border-radius:8px">
+                            @if(!empty($descriptions_list))
                                 <table>
-                                    <thead><tr><th>分组名</th><th>域名数量</th><th>默认模型</th><th>操作</th></tr></thead>
+                                    <thead><tr><th>名称</th><th>模板预览</th><th>操作</th></tr></thead>
                                     <tbody>
-                                    @foreach($groups as $g)
-                                        <tr>
-                                            <td>{{ $g['name'] ?? '(unnamed)' }}</td>
-                                            <td>{{ isset($g['domains']) ? count($g['domains']) : 0 }}</td>
-                                            <td>{{ $g['model'] ?? '' }}</td>
+                                    @foreach($descriptions_list as $d)
+                                        <tr data-id="{{ $d['id'] ?? '' }}">
+                                            <td>{{ $d['name'] ?? '' }}</td>
+                                            <td style="max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $d['template'] ?? '' }}">{{ $d['template'] ?? '' }}</td>
                                             <td>
-                                                <?php $g_b64 = base64_encode(json_encode($g, JSON_UNESCAPED_UNICODE)); ?>
-                                                <a href="#" class="group-edit-link" data-group-b64='{{ $g_b64 }}'>编辑</a>
-                                                <a href="#" class="group-remove-link" data-group-name="{{ $g['name'] ?? '' }}" style="color:#dc3545;margin-left:8px">删除</a>
+                                                <button class="btn desc-edit-btn" data-id="{{ $d['id'] ?? '' }}">编辑</button>
+                                                <button class="btn" style="background:#dc3545" data-id="{{ $d['id'] ?? '' }}" class="desc-delete-btn">删除</button>
                                             </td>
                                         </tr>
                                     @endforeach
                                     </tbody>
                                 </table>
+                            @else
+                                <div class="muted">暂无描述模板。</div>
                             @endif
                         </div>
 
-                        <div style="flex:1;min-width:360px">
-                                <div style="display:flex;justify-content:space-between;align-items:center">
-                                <h3 id="groupFormTitle">分组</h3>
-                                <button type="button" class="btn" id="openAddGroupBtn">添加分组</button>
-                            </div>
-                            <!-- keep inline form as fallback but hide it in favor of modal -->
-                            <div id="groupFormContainer" style="display:none">
-                                <h4>添加分组 (备用表单)</h4>
-                                <form method="POST" action="{{ route('admin.sites.save') }}" id="groupForm">
-                                    @csrf
-                                    <input type="hidden" name="groups_json" id="groups_json_input">
-                                    <div style="margin-top:8px">
-                                        <label class="small">分组名称</label>
-                                        <input type="text" name="group_name" id="group_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
-                                    </div>
-                                    <div style="margin-top:8px">
-                                        <label class="small">域名 (每行一条)</label>
-                                        <textarea name="group_domains" id="group_domains" style="width:100%;min-height:120px;border:1px solid rgba(0,0,0,0.06);padding:8px;border-radius:8px"></textarea>
-                                    </div>
-                                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-                                        <label><input type="checkbox" name="force_www" id="force_www"> 强制跳转到 www</label>
-                                        <label><input type="checkbox" name="force_mobile" id="force_mobile"> 移动端跳转到 m.wap</label>
-                                    </div>
-                                    <div style="margin-top:8px">
-                                        <label class="small">默认模型</label>
-                                        <input type="text" name="group_model" id="group_model" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" placeholder="模型 key，例如: default_model">
-                                    </div>
-                                    <div style="margin-top:8px">
-                                        <label class="small">模板 (可选)</label>
-                                        <input type="text" name="group_template" id="group_template" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" placeholder="模板名或路径">
-                                    </div>
-                                    <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" type="submit">保存分组</button><button type="button" id="exportGroupsBtn" class="btn" style="background:#6b7280">导出 JSON</button></div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+                        <script>
+                            (function(){
+                                var token = '{{ csrf_token() }}';
+                                function loadDescriptions(){
+                                    var grp = document.getElementById('desc_group_select').value || 'default';
+                                    fetch('{{ route('admin.sites.descriptions.json') }}?group=' + encodeURIComponent(grp)).then(r=>r.json()).then(list=>{
+                                        var el = document.getElementById('descriptionsList'); if(!el) return;
+                                        if(!list || !list.length){ el.innerHTML = '<div class="muted">暂无描述模板。</div>'; return; }
+                                        var html = '<table><thead><tr><th>名称</th><th>模板预览</th><th>操作</th></tr></thead><tbody>';
+                                        list.forEach(function(it){ html += '<tr data-id="'+(it.id||'')+'"><td>'+escapeHtml(it.name||'')+'</td><td style="max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(it.template||'')+'">'+escapeHtml(it.template||'')+'</td><td><button class="btn desc-edit-btn" data-id="'+(it.id||'')+'">编辑</button> <button class="btn desc-delete" style="background:#dc3545" data-id="'+(it.id||'')+'">删除</button></td></tr>'; });
+                                        html += '</tbody></table>';
+                                        el.innerHTML = html;
+                                    }).catch(e=>{ console.error(e); });
+                                }
+                                function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-                    <!-- Backups panel -->
-                    <div style="margin-top:18px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-                        <div style="flex:1">
-                            <h3>备份</h3>
-                            <div id="backupsList" style="background:rgba(0,0,0,0.02);padding:8px;border-radius:8px;min-height:60px">加载中...</div>
-                        </div>
-                    </div>
-                    <script>
-                        // Toast helper
-                        function showToast(msg, type){
-                            var c = document.getElementById('toastContainer');
-                            if(!c) return; var el = document.createElement('div');
-                            el.style.background = (type==='error') ? '#ffefef' : '#f0fff4';
-                            el.style.border = (type==='error') ? '1px solid #f5c2c7' : '1px solid #c6f6d5';
-                            el.style.color = (type==='error') ? '#9b1c1c' : '#064e3b';
-                            el.style.padding = '8px 12px'; el.style.borderRadius='8px'; el.style.boxShadow='0 6px 18px rgba(2,6,23,0.06)'; el.textContent = msg;
-                            c.appendChild(el);
-                            setTimeout(function(){ el.style.opacity = '0'; setTimeout(()=>el.remove(),300); }, 4200);
-                        }
+                                document.getElementById('desc_group_select')?.addEventListener('change', function(){ loadDescriptions(); });
 
-                        // Load backups
-                        function loadBackups(){
-                            var el = document.getElementById('backupsList'); if(!el) return; el.innerHTML='加载中...';
-                            fetch('{{ route('admin.sites.backups') }}').then(r=>r.json()).then(list=>{
-                                if(!list || !list.length){ el.innerHTML = '<div class="muted">暂无备份</div>'; return; }
-                                el.innerHTML = '';
-                                list.forEach(function(b){
-                                    var row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.padding='6px 8px';
-                                    var left = document.createElement('div'); left.innerHTML = '<strong>'+b.file+'</strong><div class="muted">'+b.mtime+'</div>';
-                                    var right = document.createElement('div');
-                                    var btn = document.createElement('button'); btn.className='btn'; btn.style.marginLeft='8px'; btn.textContent='恢复';
-                                    btn.addEventListener('click', function(){ if(!confirm('确认从备份恢复：'+b.file+' ?')) return; fetch('{{ route('admin.sites.restore') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({backup: b.file}) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('恢复成功','success'); setTimeout(()=>location.reload(),400); } else{ showToast('恢复失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); }); });
-                                    right.appendChild(btn);
-                                    row.appendChild(left); row.appendChild(right); el.appendChild(row);
+                                document.getElementById('addDescriptionBtn')?.addEventListener('click', function(){
+                                    openModal({ title: '添加描述模板', html: '<div><label class="small">名称</label><input id="desc_modal_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">\n<label class="small" style="margin-top:8px">模板 (可用变量 {keyword} {tips} {ip} {time})</label><textarea id="desc_modal_template" style="width:100%;min-height:160px;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px"></textarea></div>', onSave: function(){
+                                        var grp = document.getElementById('desc_group_select').value || 'default';
+                                        var name = document.getElementById('desc_modal_name').value || '';
+                                        var tpl = document.getElementById('desc_modal_template').value || '';
+                                        if(!name || !tpl){ showToast('名称和模板不能为空','error'); return; }
+                                        fetch('{{ route('admin.sites.descriptions.save') }}', { method:'POST', headers: {'Content-Type':'application/json','X-CSRF-TOKEN': token}, body: JSON.stringify({ group: grp, name: name, template: tpl }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已保存','success'); closeModal(); loadDescriptions(); } else { showToast('保存失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误','error'); console.error(e); });
+                                    } });
                                 });
-                            }).catch(e=>{ el.innerHTML = '<div class="muted">加载失败</div>'; console.error(e); });
-                        }
 
-                        // Replace alert in removeGroup earlier: redefine removeGroup to use toast if present
-                        (function(){
-                            var orig = window.removeGroup;
-                            window.removeGroup = function(name){
-                                if(!confirm('确认删除分组：' + name + ' ?')) return;
-                                fetch('{{ route('admin.sites.delete') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ name: name }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('分组已删除','success'); loadBackups(); setTimeout(()=>location.reload(),500); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); });
-                            };
-                        })();
+                                // delegated edit/delete handlers
+                                document.addEventListener('click', function(e){
+                                    var ed = e.target.closest && e.target.closest('.desc-edit-btn');
+                                    if(ed){ var id = ed.getAttribute('data-id'); var grp = document.getElementById('desc_group_select').value || 'default'; fetch('{{ route('admin.sites.descriptions.json') }}?group='+encodeURIComponent(grp)).then(r=>r.json()).then(list=>{ var it = (list||[]).find(x=> (x.id||'')===id); if(!it){ showToast('未找到模板','error'); return; } openModal({ title: '编辑模板', html: '<div><label class="small">名称</label><input id="desc_modal_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="'+escapeHtml(it.name||'')+'">\n<label class="small" style="margin-top:8px">模板</label><textarea id="desc_modal_template" style="width:100%;min-height:160px;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">'+escapeHtml(it.template||'')+'</textarea></div>', onSave:function(){ var name = document.getElementById('desc_modal_name').value || ''; var tpl = document.getElementById('desc_modal_template').value || ''; if(!name||!tpl){ showToast('名称和模板不能为空','error'); return; } fetch('{{ route('admin.sites.descriptions.save') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN': token}, body: JSON.stringify({ group: grp, id: id, name: name, template: tpl }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已保存','success'); closeModal(); loadDescriptions(); } else { showToast('保存失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误','error'); }); } }); }).catch(e=>{ console.error(e); }); return; }
 
-                        // Initialize backups panel on load
-                        document.addEventListener('DOMContentLoaded', function(){ loadBackups(); });
-                    </script>
-                    </div>
+                                    var del = e.target.closest && e.target.closest('.desc-delete');
+                                    if(del){ if(!confirm('确认删除该模板？')) return; var id = del.getAttribute('data-id'); var grp = document.getElementById('desc_group_select').value || 'default'; fetch('{{ route('admin.sites.descriptions.delete') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN': token}, body: JSON.stringify({ group: grp, id: id }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已删除','success'); loadDescriptions(); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误','error'); console.error(e); }); return; }
+                                });
+
+                                // initial load
+                                document.addEventListener('DOMContentLoaded', function(){ loadDescriptions(); });
+                            })();
+                        </script>
+                    @endif
 
                     <script>
                         function loadGroup(g){
@@ -446,6 +570,11 @@
                                 }
                             }).catch(e=>{ alert('网络错误: ' + e.message); }).finally(()=>{ el && (el.innerText = '添加分组'); });
                         }
+                        // Ensure group remove links on the Sites page trigger deletion
+                        document.addEventListener('click', function(e){
+                            var ra = e.target.closest && e.target.closest('.group-remove-link');
+                            if(ra){ e.preventDefault(); var name = ra.getAttribute('data-group-name') || ''; if(!name) { showToast('分组名缺失','error'); return; } removeGroup(name); return; }
+                        });
                         document.getElementById('exportGroupsBtn').addEventListener('click', function(){
                             var g = { name: document.getElementById('group_name').value || 'group', domains: (document.getElementById('group_domains').value||'').split('\n').map(s=>s.trim()).filter(Boolean), force_www: !!document.getElementById('force_www').checked, force_mobile: !!document.getElementById('force_mobile').checked, model: document.getElementById('group_model').value||'', template: document.getElementById('group_template').value||'' };
                             var blob = new Blob([JSON.stringify(g, null, 2)], {type:'application/json'});
@@ -455,74 +584,61 @@
 
                 @elseif(($page ?? '') === 'models')
                     <h2>模型管理</h2>
-                    @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
 
-                    <div style="display:flex;gap:12px;flex-wrap:wrap">
-                        <div style="flex:1;min-width:320px">
-                            <h3>已配置模型</h3>
-                            @if(empty($modelsList))
-                                <p class="muted">暂无模型。</p>
-                            @else
-                                <table>
-                                    <thead><tr><th>名称</th><th>Key</th><th>模板</th><th>操作</th></tr></thead>
-                                    <tbody>
-                                    @foreach($modelsList as $m)
-                                        <tr>
-                                            <td>{{ $m['name'] ?? '' }}</td>
-                                            <td>{{ $m['key'] ?? '' }}</td>
-                                            <td>{{ is_array($m['template'] ?? null) ? json_encode($m['template'], JSON_UNESCAPED_UNICODE) : ($m['template'] ?? '') }}</td>
-                                            <?php $m_b64 = base64_encode(json_encode($m, JSON_UNESCAPED_UNICODE)); ?>
-                                            <td><a href="#" class="model-edit-link" data-model-b64='{{ $m_b64 }}'>编辑</a></td>
-                                        </tr>
-                                    @endforeach
-                                    </tbody>
-                                </table>
-                            @endif
-                        </div>
+                    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px">
+                        <div class="card" style="min-width:360px;flex:2;">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                                <h4 style="margin:0">模型管理</h4>
+                                <div style="margin-left:12px;display:flex;gap:6px">
+                                    <button id="modelsTabListBtn" class="btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);padding:6px 10px">列表</button>
+                                    <button id="modelsTabAddBtn" class="btn" style="background:#06c;color:#fff;padding:6px 10px">添加模型</button>
+                                </div>
+                                <div style="margin-left:auto;color:var(--muted)">共 <strong>{{ count($modelsList ?? []) }}</strong> 个模型</div>
+                            </div>
 
-                        <div style="flex:1;min-width:360px">
-                            <h3 id="modelFormTitle">添加模型</h3>
-                            <form method="POST" action="{{ route('admin.models.save') }}" id="modelForm">
-                                @csrf
-                                <input type="hidden" name="models_json" id="models_json_input">
+                            <div id="modelsListPanel">
+                                @if(empty($modelsList))
+                                    <div class="muted">暂无模型。</div>
+                                @else
+                                    <table>
+                                        <thead><tr><th>名称</th><th>Key</th><th>模板</th><th>操作</th></tr></thead>
+                                        <tbody>
+                                        @foreach($modelsList as $m)
+                                            <tr>
+                                                <td>{{ $m['name'] ?? '' }}</td>
+                                                <td>{{ $m['key'] ?? '' }}</td>
+                                                <td>{{ is_array($m['template'] ?? null) ? json_encode($m['template'], JSON_UNESCAPED_UNICODE) : ($m['template'] ?? '') }}</td>
+                                                <?php $m_b64 = base64_encode(json_encode($m, JSON_UNESCAPED_UNICODE)); ?>
+                                                <td>
+                                                    <a href="#" class="model-edit-link" data-model-b64='{{ $m_b64 }}'>编辑</a>
+                                                    &nbsp;|&nbsp;
+                                                    <a href="#" class="model-delete-link" data-model-key="{{ $m['key'] ?? '' }}" style="color:#dc3545">删除</a>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                        </tbody>
+                                    </table>
+                                @endif
+                            </div>
+
+                            <div id="modelsAddPanel" style="display:none">
                                 <div style="margin-top:8px">
-                                    <label class="small">显示名称</label>
-                                    <input type="text" id="model_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
+                                    <p class="muted">模型通过弹出框管理，点击“添加模型”或编辑一条模型以打开管理对话框。</p>
+                                    <button id="openAddModelBtn" class="btn">添加模型</button>
                                 </div>
-                                <div style="margin-top:8px">
-                                    <label class="small">唯一 key (英数字和下划线)</label>
-                                    <input type="text" id="model_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" placeholder="例如: default_model">
-                                </div>
-                                <div style="margin-top:8px">
-                                    <label class="small">模板映射 (每行一条，格式: <code>KEY =&gt; template.html</code>，例如: <code>/news =&gt; news_template.html</code>; 默认会包含 <code>page</code> 和 <code>list</code>)</label>
-                                    <textarea id="model_template" style="width:100%;min-height:120px;border:1px solid rgba(0,0,0,0.06);padding:8px;border-radius:8px" placeholder="page => template.html\nlist => list.html"></textarea>
-                                </div>
-                                <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" type="button" id="saveModelBtn">保存模型</button><button type="button" id="clearModelBtn" class="btn" style="background:#6b7280">清空</button></div>
-                            </form>
+                            </div>
                         </div>
                     </div>
 
                     <script>
+                        // Legacy inline model form removed — use modal-based flow.
+                        // Provide a minimal safe editModel fallback (no-op if modal unavailable)
                         function editModel(m){
-                            try{
-                                document.getElementById('modelFormTitle').innerText = '编辑模型';
-                                document.getElementById('model_name').value = m.name || '';
-                                document.getElementById('model_key').value = m.key || '';
-                                document.getElementById('model_template').value = JSON.stringify(m.template || {}, null, 2);
-                            }catch(e){ console.error(e); }
+                            try{ if(window.openModelModal) return openModelModal(m); }catch(e){ console.error(e); }
                         }
-                        document.getElementById('saveModelBtn').addEventListener('click', function(){
-                            var name = document.getElementById('model_name').value || '';
-                            var key = document.getElementById('model_key').value || '';
-                            var tmpl = document.getElementById('model_template').value || '{}';
-                            try { var parsed = JSON.parse(tmpl); } catch(e){ alert('模板 JSON 格式错误: ' + e.message); return; }
-                            var models = [];
-                            // load existing from page via server-side injected JSON? We'll build minimal payload
-                            models.push({ name: name, key: key, template: parsed });
-                            document.getElementById('models_json_input').value = JSON.stringify(models);
-                            document.getElementById('modelForm').submit();
-                        });
-                        document.getElementById('clearModelBtn').addEventListener('click', function(){ document.getElementById('model_name').value=''; document.getElementById('model_key').value=''; document.getElementById('model_template').value=''; document.getElementById('modelFormTitle').innerText='添加模型'; });
+                        // Ensure the "添加模型" button opens the modal
+                        document.getElementById('openAddModelBtn')?.addEventListener('click', function(){ if(window.openModelModal) openModelModal(null); });
                     </script>
 
                     <script>
@@ -532,15 +648,27 @@
                             var a = e.target.closest && e.target.closest('.group-edit-link');
                             if(a){ e.preventDefault(); try{ var raw = a.getAttribute('data-group-b64') || a.getAttribute('data-group') || ''; var jsonStr = raw; if(raw && a.getAttribute('data-group-b64')){ try{ jsonStr = decodeURIComponent(escape(window.atob(raw))); }catch(e){ try{ jsonStr = window.atob(raw); }catch(e2){ jsonStr = raw; } } } var g = JSON.parse(jsonStr || '{}'); if(window.openGroupModal) openGroupModal(g); else if(window.loadGroup) loadGroup(g); }catch(err){ console.error('parse group json', err); } return; }
                             var ra = e.target.closest && e.target.closest('.group-remove-link');
-                            if(ra){ e.preventDefault(); var name = ra.getAttribute('data-group-name') || ''; if(window.removeGroup) removeGroup(name); return; }
+                            if(ra){
+                                e.preventDefault();
+                                var name = ra.getAttribute('data-group-name') || '';
+                                if(!name){ showToast('分组名缺失','error'); return; }
+                                if(!confirm('确认删除分组：' + name + ' ?')) return;
+                                fetch('{{ route('admin.sites.delete') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ name: name }) })
+                                    .then(function(r){ return r.json().then(function(j){ return { status: r.status, json: j }; }); })
+                                    .then(function(res){ if(res.status >=200 && res.status < 300 && res.json && res.json.ok){ showToast('分组已删除','success'); setTimeout(function(){ location.reload(); }, 350); } else { showToast('删除失败: '+(res.json && res.json.message ? res.json.message : ('HTTP ' + res.status)),'error'); } })
+                                    .catch(function(e){ showToast('网络错误: ' + (e && e.message ? e.message : e),'error'); console.error(e); });
+                                return;
+                            }
                             var ma = e.target.closest && e.target.closest('.model-edit-link');
                             if(ma){ e.preventDefault(); try{ var rawm = ma.getAttribute('data-model-b64') || ma.getAttribute('data-model') || ''; var jsonM = rawm; if(rawm && ma.getAttribute('data-model-b64')){ try{ jsonM = decodeURIComponent(escape(window.atob(rawm))); }catch(e){ try{ jsonM = window.atob(rawm); }catch(e2){ jsonM = rawm; } } } var m = JSON.parse(jsonM || '{}'); if(window.openModelModal) openModelModal(m); else if(window.editModel) editModel(m); }catch(err){ console.error('parse model json', err); } return; }
+                            var md = e.target.closest && e.target.closest('.model-delete-link');
+                            if(md){ e.preventDefault(); var key = md.getAttribute('data-model-key') || ''; if(!key) return; if(!confirm('确认删除模型：' + key + ' ?')) return; fetch('{{ route('admin.models.delete') }}', { method: 'POST', headers: {'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ key: key }) }).then(r=>r.json()).then(j=>{ if(j && j.ok){ showToast('模型已删除','success'); setTimeout(()=>location.reload(),350); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); }); return; }
                         });
                     </script>
 
                 @elseif(($page ?? '') === 'access_ip')
                     <h2>访问 IP 控制</h2>
-                    @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
                     
                     <div class="muted" style="margin-bottom: 16px; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 8px; line-height: 1.6;">
                         <strong>逻辑说明:</strong><br>
@@ -566,7 +694,7 @@
 
                 @elseif(($page ?? '') === 'access_ua')
                     <h2>访问 UA 控制</h2>
-                    @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
 
                     <div class="muted" style="margin-bottom: 16px; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 8px; line-height: 1.6;">
                         <strong>逻辑说明:</strong><br>
@@ -650,8 +778,8 @@
 
                 @elseif(($page ?? '') === 'password')
                     <h2>修改密码</h2>
-                    @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
-                    @if($errors->any())<div style="background:#fff6f6;padding:8px;border-radius:6px;margin-bottom:12px;color:#9b1c1c">{{ $errors->first() }}</div>@endif
+                    @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
+                    @if($errors->any())<div class="alert alert-error">{{ $errors->first() }}</div>@endif
                     <form method="POST" action="{{ route('admin.password.update') }}" class="inline">
                         @csrf
                         <div>
@@ -679,13 +807,13 @@
                         <label class="small">搜索 <input type="text" name="q" value="{{ $q ?? '' }}" placeholder="URL 或 IP"></label>
                         <label class="small">每页 <input type="number" name="per_page" value="{{ $per ?? 50 }}" min="10" max="200" style="width:80px"></label>
                         <div style="margin-left:auto;display:flex;gap:8px">
-                            <button class="btn" type="submit">筛选</button>
+                            <!-- 筛选现在为自动触发（更改即筛选） -->
                             <a class="btn" href="{{ route('admin.logs') }}?from={{ $from ?? ($date ?? date('Y-m-d')) }}&to={{ $to ?? ($date ?? date('Y-m-d')) }}&download=access">下载 CSV</a>
                         </div>
                     </form>
 
                     @if($errors->any())
-                        <div style="background:#fff6f6;padding:8px;border-radius:6px;margin-bottom:12px;color:#9b1c1c">{{ $errors->first() }}</div>
+                        <div class="alert alert-error">{{ $errors->first() }}</div>
                     @endif
                     @if(isset($chartCounts) && is_array($chartCounts))
                         <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
@@ -748,7 +876,7 @@
                                     </td>
                                     @for($p=$start;$p<=$end;$p++)
                                         <td style="padding:4px">
-                                            <a class="pager-btn" href="?from={{ $from }}&to={{ $to }}&ip={{ $ip }}&q={{ $q }}&page={{ $p }}&per_page={{ $per }}" style="background:{{ $p == $cp ? 'rgba(0,0,0,0.06)' : 'transparent' }}">{{ $p }}</a>
+                                            <a class="pager-btn {{ $p == $cp ? 'pager-current' : '' }}" href="?from={{ $from }}&to={{ $to }}&ip={{ $ip }}&q={{ $q }}&page={{ $p }}&per_page={{ $per }}">{{ $p }}</a>
                                         </td>
                                     @endfor
                                     <td style="padding:4px">
@@ -794,13 +922,13 @@
                         <label class="small">爬虫 <input type="text" name="bot" value="{{ $bot ?? '' }}" placeholder="部分 UA 名称"></label>
                         <label class="small">每页 <input type="number" name="per_page" value="{{ $per ?? 50 }}" min="10" max="200" style="width:80px"></label>
                         <div style="margin-left:auto;display:flex;gap:8px">
-                            <button class="btn" type="submit">筛选</button>
+                            <!-- 筛选现在为自动触发（更改即筛选） -->
                             <a class="btn" href="{{ route('admin.spiders') }}?from={{ $from ?? ($date ?? date('Y-m-d')) }}&to={{ $to ?? ($date ?? date('Y-m-d')) }}&download=spider">下载 CSV</a>
                         </div>
                     </form>
 
                     @if($errors->any())
-                        <div style="background:#fff6f6;padding:8px;border-radius:6px;margin-bottom:12px;color:#9b1c1c">{{ $errors->first() }}</div>
+                        <div class="alert alert-error">{{ $errors->first() }}</div>
                     @endif
                     @if(isset($chartCounts) && is_array($chartCounts))
                         <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
@@ -863,7 +991,7 @@
                                     </td>
                                     @for($p=$start;$p<=$end;$p++)
                                         <td style="padding:4px">
-                                            <a class="pager-btn" href="?from={{ $from }}&to={{ $to }}&bot={{ $bot }}&ip={{ $ip }}&page={{ $p }}&per_page={{ $per }}" style="background:{{ $p == $cp ? 'rgba(0,0,0,0.06)' : 'transparent' }}">{{ $p }}</a>
+                                            <a class="pager-btn {{ $p == $cp ? 'pager-current' : '' }}" href="?from={{ $from }}&to={{ $to }}&bot={{ $bot }}&ip={{ $ip }}&page={{ $p }}&per_page={{ $per }}">{{ $p }}</a>
                                         </td>
                                     @endfor
                                     <td style="padding:4px">
@@ -908,7 +1036,7 @@
                         <label class="small">到 <input type="date" name="to" id="op_to" value="{{ $to ?? ($date ?? date('Y-m-d')) }}"></label>
                         <label class="small">搜索 <input type="text" name="q" value="{{ $q ?? '' }}" placeholder="用户/IP/URI"></label>
                         <div style="margin-left:auto;display:flex;gap:8px">
-                            <button class="btn" type="submit">筛选</button>
+                            <!-- 筛选现在为自动触发（更改即筛选） -->
                             <a class="btn" href="{{ route('admin.operation_logs') }}?from={{ $from ?? ($date ?? date('Y-m-d')) }}&to={{ $to ?? ($date ?? date('Y-m-d')) }}&download=action">导出 CSV</a>
                         </div>
                     </form>
@@ -928,7 +1056,7 @@
                                     <th style="padding:8px">状态</th>
                                     <th style="padding:8px">耗时</th>
                                     <th style="padding:8px">操作摘要</th>
-                                    <th style="padding:8px">Payload</th>
+                                    <th style="padding:8px">负载</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -953,7 +1081,7 @@
                             <div class="muted">共 {{ $total }} 条结果</div>
                             <div style="margin-left:auto;display:flex;gap:6px">
                                 @for($p=1;$p<=$pages;$p++)
-                                    <a href="?from={{ $from }}&to={{ $to }}&q={{ $q }}&page={{ $p }}&per_page={{ $per }}" style="padding:6px 8px;border-radius:6px;background:{{ $p == ($currentPage ?? 1) ? 'rgba(0,0,0,0.06)' : 'transparent' }}">{{ $p }}</a>
+                                    <a href="?from={{ $from }}&to={{ $to }}&q={{ $q }}&page={{ $p }}&per_page={{ $per }}" class="pager-btn {{ $p == ($currentPage ?? 1) ? 'pager-current' : '' }}" style="padding:6px 8px;border-radius:6px">{{ $p }}</a>
                                 @endfor
                             </div>
                         </div>
@@ -1075,7 +1203,7 @@
                 @elseif(($page ?? '') === 'api_management')
                     <h2>API 管理</h2>
                     @if(session('status'))<div style="background:#ecffed;padding:8px;border-radius:6px;margin-bottom:12px">{{ session('status') }}</div>@endif
-                    @if($errors->any())<div style="background:#fff6f6;padding:8px;border-radius:6px;margin-bottom:12px;color:#9b1c1c">{{ $errors->first() }}</div>@endif
+                    @if($errors->any())<div class="alert alert-error">{{ $errors->first() }}</div>@endif
 
                     <p class="muted">在此管理外部上传 API 的配置。配置以 JSON 存储于 <code>data/api/config.json</code>。</p>
 
@@ -1096,7 +1224,7 @@
                         <div style="margin-top:6px;margin-bottom:12px;color:var(--muted)">保存后系统将写入 <code>data/api/config.json</code>，密钥会自动生成（若为空）。</div>
                         <div style="margin-top:6px;padding:12px;background:rgba(0,0,0,0.02);border-radius:8px">
                             <div class="muted">示例上传 (curl):</div>
-                            <pre style="white-space:pre-wrap">curl -X POST "http://your-site/api/articles" -H "X-API-Key: {{ session('api_key') ?? (isset($apiConfigJson) ? (json_decode($apiConfigJson, true)['key'] ?? 'your-api-key') : 'your-api-key') }}" -d "title=标题&summary=摘要&content=内容&publish=1"</pre>
+                            <pre style="white-space:pre-wrap">curl -X POST "{{ rtrim(url('/'), '/') }}{{ isset($apiConfigJson) ? (json_decode($apiConfigJson, true)['endpoint'] ?? '/api/articles') : '/api/articles' }}" -H "X-API-Key: {{ session('api_key') ?? (isset($apiConfigJson) ? (json_decode($apiConfigJson, true)['key'] ?? 'your-api-key') : 'your-api-key') }}" -d "title=标题&summary=摘要&content=内容&publish=1"</pre>
                         </div>
 
                         <div style="margin-top:12px;display:flex;gap:8px">
@@ -1184,16 +1312,6 @@
                         });
                     </script>
 
-                    <h3 style="margin-top:18px">推荐的 JSON 格式</h3>
-                    <pre class="muted" style="padding:12px;background:rgba(0,0,0,0.02);border-radius:8px;white-space:pre-wrap">{
-  "enabled": true,                // 是否启用 API
-  "endpoint": "/api/articles",  // 接收文章的端点
-  "key": "your-api-key",        // 用于简单鉴权的共享密钥
-  "allowed_sources": ["api"],   // 标注来源
-  "rate_limit_per_min": 60,       // 可选，限流设置
-  "allowed_ips": ["127.0.0.1"]  // 可选，允许的调用方 IP 白名单
-}</pre>
-
                     <script>
                         document.getElementById('validateBtn')?.addEventListener('click', function(){
                             try {
@@ -1233,7 +1351,7 @@
                         $f_to = $f_to ?? '';
                     @endphp
                     <h2>内容列表</h2>
-                    <form method="GET" action="#" style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+                    <form id="contentFiltersForm" method="GET" action="#" style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
                         <label class="small">从 <input type="date" name="from" value="{{ $f_from ?? '' }}"></label>
                         <label class="small">到 <input type="date" name="to" value="{{ $f_to ?? '' }}"></label>
                         <select name="source" class="per-select">
@@ -1247,23 +1365,78 @@
                             <option value="published" {{ (isset($f_status) && $f_status=='published') ? 'selected' : '' }}>已发布</option>
                             <option value="unpublished" {{ (isset($f_status) && $f_status=='unpublished') ? 'selected' : '' }}>未发布</option>
                         </select>
-                        <button class="btn" type="submit">筛选</button>
                     </form>
 
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-                        <div>内容资源管理已迁移到单独页面。</div>
-                        <a href="{{ route('admin.content.resources') }}" class="btn">前往内容资源管理</a>
+                    <div id="contentListContainer">
+                    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px">
+                        @if(!empty($articles) && is_array($articles))
+                            <div class="content-inner">
+                                <table>
+                                    <thead>
+                                        <tr style="text-align:left">
+                                            <th style="width:64px">序号</th>
+                                            <th>标题</th>
+                                            <th style="width:420px">摘要</th>
+                                            <th style="width:120px">来源</th>
+                                            <th style="width:110px">状态</th>
+                                            <th style="width:160px">创建时间</th>
+                                            <th style="width:120px">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php $startIndex = (($currentPage ?? 1)-1) * ($perPage ?? 10); @endphp
+                                        @foreach($articles as $art)
+                                            @php
+                                                $title = $art['title'] ?? ($art['id'] ?? 'Untitled');
+                                                $created = $art['created_at'] ?? '';
+                                                $source = $art['source'] ?? ($art['origin'] ?? 'unknown');
+                                                $status = $art['status'] ?? (isset($art['published']) && $art['published'] ? 'published' : 'unpublished');
+                                                $id = $art['id'] ?? ($art['uuid'] ?? '');
+                                                $rawContent = trim(preg_replace('/\s+/',' ', strip_tags($art['content'] ?? '')));
+                                                $excerpt = \Illuminate\Support\Str::limit($rawContent, 220, '...');
+                                                $rawUrl = url('/data/article') . '/' . ($status === 'published' ? 'published' : 'unpublished') . '/' . ($id ? urlencode($id) . '.json' : '');
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $loop->index + 1 + $startIndex }}</td>
+                                                <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $title }}">{{ $title }}</td>
+                                                <td style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $rawContent }}">{{ $excerpt }}</td>
+                                                <td class="muted">{{ $source }}</td>
+                                                <td class="muted">{{ $status }}</td>
+                                                <td class="muted">{{ $created }}</td>
+                                                <td><a class="btn" href="{{ $rawUrl }}" style="background:#10b981">查看JSON</a></td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="muted">暂无文章</div>
+                        @endif
+
+                        {{-- Pagination --}}
+                        @php $cp = $currentPage ?? 1; $pgs = $pages ?? 1; @endphp
+                        @if($pgs > 1)
+                            <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+                                @if($cp>1)
+                                    <a class="btn" href="?page={{ $cp-1 }}&from={{ urlencode($f_from ?? '') }}&to={{ urlencode($f_to ?? '') }}&source={{ urlencode($f_source ?? '') }}&status={{ urlencode($f_status ?? '') }}">上一页</a>
+                                @endif
+                                <div class="pager-summary">第 {{ $cp }} / {{ $pgs }} 页</div>
+                                @if($cp<$pgs)
+                                    <a class="btn" href="?page={{ $cp+1 }}&from={{ urlencode($f_from ?? '') }}&to={{ urlencode($f_to ?? '') }}&source={{ urlencode($f_source ?? '') }}&status={{ urlencode($f_status ?? '') }}">下一页</a>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
                     </div>
 
                     @elseif(($page ?? '') === 'content_resources')
-                    <h2>内容资源管理</h2>
+                    @php
+                        $tabLabelMap = [ 'keywords' => '关键词管理', 'columns' => '栏目管理', 'tips' => 'Tips 管理', 'suffixes' => '标题后缀' ];
+                        $curTab = $resource_tab ?? (request()->query('tab') ?? 'keywords');
+                        $pageTitle = $tabLabelMap[$curTab] ?? '内容资源管理';
+                    @endphp
+                    <h2>{{ $pageTitle }}</h2>
                     <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-                        <div style="display:flex;gap:8px;align-items:center">
-                            <button class="btn" type="button" data-type="keywords" onclick="switchContentTab('keywords')">关键词</button>
-                            <button class="btn" type="button" data-type="columns" onclick="switchContentTab('columns')">栏目</button>
-                            <button class="btn" type="button" data-type="tips" onclick="switchContentTab('tips')">Tips</button>
-                            <button class="btn" type="button" data-type="suffixes" onclick="switchContentTab('suffixes')">标题后缀</button>
-                        </div>
                         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
                             <label class="small" style="margin:0">选择分组</label>
                             <select id="content_group_select" style="padding:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.06)"></select>
@@ -1271,144 +1444,256 @@
                     </div>
 
                     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px">
-                        <div style="min-width:320px;flex:1;background:#fff;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
-                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-                                <h4 id="content_tab_title">关键词管理</h4>
-                                <div style="margin-left:auto;display:flex;gap:8px">
-                                    <button class="btn" id="openAddResourceBtn" style="background:#06c">添加</button>
-                                    <button class="btn" id="refreshFilesBtn" style="background:#6b7280">刷新</button>
-                                </div>
-                            </div>
-                            <div style="margin-bottom:8px;color:var(--muted)">选择分组和类型后，可在此添加或上传文本内容，系统会保存为文本文件。</div>
-                            <form id="contentUploadForm" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:8px">
-                                <div style="display:flex;gap:8px;align-items:center">
-                                    <label class="small" style="margin:0">目标分组</label>
-                                    <select id="content_group_select2" style="padding:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.06)"></select>
-                                    <label class="small" style="margin:0">类型</label>
-                                    <select id="content_type_select" style="padding:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.06)">
-                                        <option value="keywords">关键词</option>
-                                        <option value="columns">栏目</option>
-                                        <option value="tips">Tips</option>
-                                        <option value="suffixes">标题后缀</option>
-                                    </select>
-                                </div>
-                                <div style="display:flex;gap:8px"><input type="file" name="file" id="content_file_input" accept=".txt,.csv,text/*"><button type="button" class="btn" id="uploadContentBtn">上传文件</button></div>
-                            </form>
-                        </div>
-
-                        <div style="min-width:360px;flex:1;background:#fff;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+                        <div class="card" style="min-width:360px;flex:2;">
                             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
                                 <h4 style="margin:0">文件列表</h4>
+                                <div style="margin-left:12px;display:flex;gap:6px">
+                                    <button id="tabListBtn" class="btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);padding:6px 10px">列表</button>
+                                    <button id="tabAddBtn" class="btn" style="background:#06c;color:#fff;padding:6px 10px">添加文档</button>
+                                </div>
                                 <div style="margin-left:auto;color:var(--muted)">Group: <strong id="currentGroupLabel">{{ $resource_group ?? 'default' }}</strong> • Type: <strong id="currentTypeLabel">{{ $resource_tab ?? 'keywords' }}</strong></div>
                             </div>
-                            <div id="contentFilesList" style="min-height:160px">
-                                @if(!empty($resource_files) && is_array($resource_files))
-                                    @foreach($resource_files as $f)
-                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid rgba(0,0,0,0.04)">
-                                            <div>
-                                                <div style="font-weight:600">{{ $f['file'] }}</div>
-                                                <div class="muted">{{ $f['mtime'] }} • {{ $f['size'] }} bytes</div>
+
+                            <!-- Panels: list and inline add -->
+                            <div id="contentListPanel">
+                                <div id="contentFilesList" style="min-height:160px">
+                                    @if(!empty($resource_files) && is_array($resource_files))
+                                        @foreach($resource_files as $f)
+                                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid rgba(0,0,0,0.04)">
+                                                <!-- File entry -->
+                                                    <div class="card" style="flex:1 1 100%;min-width:0;">
+                                                    <div style="display:flex;gap:8px">
+                                                        @php $fgroup = $f['group'] ?? ($resource_group ?? 'default'); @endphp
+                                                        <a class="btn" href="#" style="background:#10b981" onclick="event.preventDefault(); window.location='{{ url('/data/group') }}/'+encodeURIComponent('{{ $fgroup }}')+'/'+encodeURIComponent('{{ $resource_tab ?? 'keywords' }}')+'/'+encodeURIComponent('{{ $f['file'] }}')">下载</a>
+                                                        <button class="btn delete-resource-btn" data-file="{{ $f['file'] }}" data-group="{{ $fgroup }}" data-type="{{ $resource_tab ?? 'keywords' }}" style="background:#dc3545">删除</button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style="display:flex;gap:8px">
-                                                <a class="btn" href="#" style="background:#10b981" onclick="event.preventDefault(); window.location='{{ url('/data/group') }}/'+encodeURIComponent('{{ $resource_group ?? 'default' }}')+'/'+encodeURIComponent('{{ $resource_tab ?? 'keywords' }}')+'/'+encodeURIComponent('{{ $f['file'] }}')">下载</a>
-                                                <form method="POST" action="{{ route('admin.content.delete_file') }}" style="display:inline">
-                                                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                                                    <input type="hidden" name="group" value="{{ $resource_group ?? 'default' }}">
-                                                    <input type="hidden" name="type" value="{{ $resource_tab ?? 'keywords' }}">
-                                                    <input type="hidden" name="file" value="{{ $f['file'] }}">
-                                                    <button class="btn" style="background:#dc3545">删除</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                @else
-                                    <div class="muted">暂无文件</div>
-                                @endif
+                                        @endforeach
+                                    @else
+                                        <div class="muted">暂无文件</div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div id="contentAddPanel" style="display:none">
+                                <div style="display:flex;flex-direction:column;gap:8px">
+                                    <label class="small">目标分组</label>
+                                    <select id="add_inline_group" style="padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px"></select>
+                                    <select id="add_inline_type" style="display:none">
+                                        <option value="keywords">keywords</option>
+                                        <option value="columns">columns</option>
+                                        <option value="tips">tips</option>
+                                        <option value="suffixes">suffixes</option>
+                                    </select>
+                                    <label class="small">上传文件（优先）</label>
+                                    <input type="file" id="add_inline_file" accept=".txt,.csv,text/*">
+                                    <label class="small">或直接输入文本内容（若上传了文件则以文件为准）</label>
+                                    <input id="add_inline_name" placeholder="文件名（如不上传则需要填写）" style="padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
+                                    <textarea id="add_inline_content" style="min-height:160px;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px"></textarea>
+                                    <div id="add_inline_error" style="color:#dc3545;display:none;margin-top:6px"></div>
+                                    <div style="display:flex;gap:8px">
+                                        <button id="add_inline_submit" class="btn" style="background:#06c;color:#fff">提交</button>
+                                        <button id="add_inline_cancel" class="btn" style="background:#6b7280">取消</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
+                        <!-- Hidden form used by model modal to submit models JSON safely -->
+                        <form id="modelForm" method="POST" action="{{ route('admin.models.save') }}" style="display:none">
+                            @csrf
+                            <input type="hidden" name="models_json" id="models_json_input" value="">
+                            <input type="hidden" name="_orig_key" id="_orig_key_input" value="">
+                        </form>
+
                     <script>
-                        // Load groups into selects
+                        // Load groups into selects. Add an "全部" option for filters (not for upload target).
                         function loadGroupsToSelects(){
-                            fetch('{{ route('admin.sites.json') }}').then(r=>r.json()).then(list=>{
-                                var sel = document.getElementById('content_group_select');
-                                var sel2 = document.getElementById('content_group_select2');
-                                if(!sel || !sel2) return;
-                                sel.innerHTML = '';
-                                sel2.innerHTML = '';
-                                list.forEach(function(g){ var opt = document.createElement('option'); opt.value = g.name; opt.textContent = g.name; sel.appendChild(opt); sel2.appendChild(opt.cloneNode(true)); });
-                                // set selects to server-provided values if present
-                                try{
-                                    var serverGroup = '{{ $resource_group ?? '' }}';
-                                    var serverTab = '{{ $resource_tab ?? '' }}';
-                                    if(serverGroup && sel.querySelector('option[value="'+serverGroup+'"]')){ sel.value = serverGroup; sel2.value = serverGroup; document.getElementById('currentGroupLabel').textContent = serverGroup; }
-                                    var t = new URLSearchParams(window.location.search || '').get('tab') || serverTab || 'keywords';
-                                    switchContentTab(t);
-                                    if(!sel.value && sel.options.length) sel.value = sel.options[0].value;
-                                }catch(e){ console.warn(e); }
-                            }).catch(e=>{ console.warn('无法加载分组列表', e); });
+                                fetch('{{ route('admin.sites.json') }}').then(r=>r.json()).then(list=>{
+                                    // populate any known group selects on the page
+                                    var selectors = ['content_group_select','content_group_select2','add_inline_group','content_group_select_mobile'];
+                                    selectors.forEach(function(id){
+                                        var sel = document.getElementById(id);
+                                        if(!sel) return;
+                                        sel.innerHTML = '';
+                                        // for filter selects (content_group_*), add an "全部" option
+                                        if(id.indexOf('content_group') === 0 && id !== 'add_inline_group'){
+                                            var allOpt = document.createElement('option'); allOpt.value = 'all'; allOpt.textContent = '全部'; sel.appendChild(allOpt);
+                                        }
+                                        list.forEach(function(g){ var opt = document.createElement('option'); opt.value = (g.key || g.name); opt.textContent = (g.name || g.key || ''); sel.appendChild(opt); });
+                                    });
+                                    // set selects to server-provided values if present
+                                    try{
+                                        var serverGroup = '{{ $resource_group ?? 'all' }}';
+                                        var serverTab = '{{ $resource_tab ?? '' }}';
+                                        if(serverGroup){
+                                            var s = document.getElementById('content_group_select'); if(s && s.querySelector('option[value="'+serverGroup+'"]')){ s.value = serverGroup; var opt = s.querySelector('option[value="'+serverGroup+'"]'); document.getElementById('currentGroupLabel').textContent = opt ? opt.textContent : serverGroup; }
+                                            var s2 = document.getElementById('content_group_select2'); if(s2 && s2.querySelector('option[value="'+serverGroup+'"]')) { s2.value = serverGroup; }
+                                            var a = document.getElementById('add_inline_group'); if(a && a.querySelector('option[value="'+serverGroup+'"]')) a.value = serverGroup;
+                                        }
+                                        var t = new URLSearchParams(window.location.search || '').get('tab') || serverTab || 'keywords';
+                                        switchContentTab(t);
+                                    }catch(e){ console.warn(e); }
+                                }).catch(e=>{ console.warn('无法加载分组列表', e); });
                         }
 
                         var currentContentType = 'keywords';
                         function switchContentTab(t){ currentContentType = t; document.getElementById('content_tab_title').innerText = (t==='keywords'?'关键词管理':(t==='columns'?'栏目管理':(t==='tips'?'Tips 管理':'标题后缀'))); document.getElementById('content_type_select').value = t; }
 
-                        document.getElementById('uploadContentBtn').addEventListener('click', function(){
-                            var f = document.getElementById('content_file_input').files[0];
-                            var grp = document.getElementById('content_group_select2').value;
-                            var type = document.getElementById('content_type_select').value;
-                            if(!f){ alert('请选择文件'); return; }
-                            if(!grp){ alert('请选择分组'); return; }
-                            var fd = new FormData(); fd.append('file', f); fd.append('group', grp); fd.append('type', type);
-                            var btn = this; btn.disabled = true; btn.textContent = '上传中...';
-                            fetch('{{ route('admin.content.upload') }}', { method: 'POST', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: fd }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('上传成功','success'); window.location = '{{ route('admin.content.resources') }}?tab='+encodeURIComponent(type)+'&group='+encodeURIComponent(grp); } else { showToast('上传失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); }).finally(()=>{ btn.disabled=false; btn.textContent='上传文件'; });
+                        // Primary Add button now switches to inline 添加文档 面板
+                        document.getElementById('openAddResourceBtnPrimary')?.addEventListener('click', function(){
+                            var tabAdd = document.getElementById('tabAddBtn'); if(tabAdd) tabAdd.click();
+                            else { try{ document.getElementById('openAddResourceBtn')?.click(); }catch(e){} }
                         });
 
                         function loadFilesForCurrent(){
                             var grp = document.getElementById('content_group_select')?.value || document.getElementById('content_group_select2')?.value || '';
                             var type = document.getElementById('content_type_select')?.value || currentContentType;
-                            if(!grp){ document.getElementById('contentFilesList').innerHTML = '<div class="muted">请选择分组</div>'; return; }
+                            // treat empty selection as 'all' (show all groups)
+                            if(!grp) grp = 'all';
                             document.getElementById('contentFilesList').innerHTML = '加载中...';
                             fetch('{{ route('admin.content.files') }}?group=' + encodeURIComponent(grp) + '&type=' + encodeURIComponent(type)).then(r=>r.json()).then(j=>{
                                 if(!j.ok){ document.getElementById('contentFilesList').innerHTML = '<div class="muted">加载失败</div>'; return; }
                                 var el = document.getElementById('contentFilesList'); el.innerHTML = '';
                                 if(!j.files || !j.files.length){ el.innerHTML = '<div class="muted">暂无文件</div>'; return; }
-                                j.files.forEach(function(f){ var row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.padding='6px 8px'; var left = document.createElement('div'); left.innerHTML = '<strong>'+f.file+'</strong><div class="muted">'+f.mtime+' • '+f.size+' bytes</div>'; var right = document.createElement('div'); var del = document.createElement('button'); del.className='btn'; del.style.background='#dc3545'; del.textContent='删除'; del.addEventListener('click', function(){ if(!confirm('确认删除 '+f.file+' ?')) return; fetch('{{ route('admin.content.delete_file') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ group: grp, type: type, file: f.file }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已删除','success'); loadFilesForCurrent(); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); }); }); right.appendChild(del); row.appendChild(left); row.appendChild(right); el.appendChild(row); });
+                                j.files.forEach(function(f){
+                                    var row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.padding='6px 8px';
+                                    var left = document.createElement('div');
+                                    var groupLabel = f.group ? ('<span class="muted">['+f.group+'] </span>') : '';
+                                    left.innerHTML = groupLabel + '<strong>'+f.file+'</strong><div class="muted">'+f.mtime+' • '+f.size+' bytes</div>';
+                                    var right = document.createElement('div');
+                                    var dl = document.createElement('a'); dl.className='btn'; dl.href = '#'; dl.style.background = '#10b981'; dl.textContent = '下载';
+                                    dl.addEventListener('click', function(ev){ ev.preventDefault(); var gFor = f.group || grp; window.location = '{{ url('/data/group') }}/' + encodeURIComponent(gFor) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(f.file); });
+                                    var del = document.createElement('button'); del.className='btn'; del.style.background='#dc3545'; del.textContent='删除';
+                                    del.addEventListener('click', function(){ if(!confirm('确认删除 '+f.file+' ?')) return; var gFor = f.group || grp; fetch('{{ route('admin.content.delete_file') }}', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ group: gFor, type: type, file: f.file }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已删除','success'); loadFilesForCurrent(); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); }); });
+                                    right.appendChild(dl); right.appendChild(del); row.appendChild(left); row.appendChild(right); el.appendChild(row);
+                                });
                             }).catch(e=>{ document.getElementById('contentFilesList').innerHTML = '<div class="muted">加载失败</div>'; });
                         }
 
-                        document.getElementById('refreshFilesBtn').addEventListener('click', function(){
-                            var grp = document.getElementById('content_group_select')?.value || document.getElementById('content_group_select2')?.value || '';
-                            var type = document.getElementById('content_type_select')?.value || currentContentType;
-                            if(!grp) return alert('请选择分组');
-                            window.location = '{{ route('admin.content.resources') }}?tab='+encodeURIComponent(type)+'&group='+encodeURIComponent(grp);
+                        document.getElementById('content_group_select')?.addEventListener('change', function(e){
+                            var v = e.target.value;
+                            var sel2 = document.getElementById('content_group_select2'); if(sel2) sel2.value = v;
+                            var curLbl = document.getElementById('currentGroupLabel'); if(curLbl){ var opt = e.target.options[e.target.selectedIndex]; curLbl.textContent = opt ? opt.textContent : v; }
+                            // reload files for the newly-selected group
+                            try{ loadFilesForCurrent(); } catch(err){ console.warn('loadFilesForCurrent missing', err); }
                         });
-                        document.getElementById('content_group_select')?.addEventListener('change', function(e){ document.getElementById('content_group_select2').value = e.target.value; });
-                        document.getElementById('content_group_select2')?.addEventListener('change', function(e){ document.getElementById('content_group_select').value = e.target.value; });
-                        document.getElementById('content_type_select')?.addEventListener('change', function(e){ document.getElementById('currentTypeLabel').textContent = e.target.value; });
 
-                        // open Add modal
-                        document.getElementById('openAddResourceBtn').addEventListener('click', function(){
-                            var grp = document.getElementById('content_group_select2').value || '{{ $resource_group ?? 'default' }}';
-                            var type = document.getElementById('content_type_select').value || '{{ $resource_tab ?? 'keywords' }}';
-                            openModal({ title: '添加资源文件', html: `
-                                <div style="display:flex;flex-direction:column;gap:8px">
-                                    <label class="small">文件名</label>
-                                    <input id="add_res_name" value="new.txt" style="padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px">
-                                    <label class="small">内容</label>
-                                    <textarea id="add_res_content" style="min-height:160px;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px"></textarea>
-                                    <input type="hidden" id="add_res_group" value="`+grp+`">
-                                    <input type="hidden" id="add_res_type" value="`+type+`">
-                                </div>
-                            `, onSave: function(){
-                                var name = document.getElementById('add_res_name').value || 'new.txt';
-                                var content = document.getElementById('add_res_content').value || '';
-                                var grp2 = document.getElementById('add_res_group').value;
-                                var type2 = document.getElementById('add_res_type').value;
-                                var fd = new FormData(); fd.append('_token','{{ csrf_token() }}'); fd.append('name', name); fd.append('content', content); fd.append('group', grp2); fd.append('type', type2);
-                                fetch('{{ route('admin.content.resources.add') }}', { method:'POST', body: fd }).then(function(){ window.location='{{ route('admin.content.resources') }}?tab='+encodeURIComponent(type2)+'&group='+encodeURIComponent(grp2); });
-                            }});
+                        document.getElementById('content_group_select2')?.addEventListener('change', function(e){
+                            var v = e.target.value;
+                            var sel1 = document.getElementById('content_group_select'); if(sel1) sel1.value = v;
+                            var curLbl = document.getElementById('currentGroupLabel'); if(curLbl){ var opt = e.target.options[e.target.selectedIndex]; curLbl.textContent = opt ? opt.textContent : v; }
+                            try{ loadFilesForCurrent(); } catch(err){ console.warn('loadFilesForCurrent missing', err); }
                         });
+
+                        document.getElementById('content_type_select')?.addEventListener('change', function(e){
+                            var t = e.target.value;
+                            var lbl = document.getElementById('currentTypeLabel'); if(lbl) lbl.textContent = t;
+                            try{ switchContentTab(t); loadFilesForCurrent(); } catch(err){ console.warn('switchContentTab/loadFilesForCurrent missing', err); }
+                        });
+
+                        // Old modal-based add flow removed in favor of inline 添加文档 面板
+
+                        // bind AJAX delete handlers for server-rendered buttons
+                        function bindDeleteButtons(){
+                            document.querySelectorAll('.delete-resource-btn').forEach(function(btn){
+                                if (btn._bound) return; btn._bound = true;
+                                btn.addEventListener('click', function(e){
+                                    var file = this.getAttribute('data-file');
+                                    var grp = this.getAttribute('data-group');
+                                    var type = this.getAttribute('data-type');
+                                    if(!confirm('确认删除 '+file+' ?')) return;
+                                    fetch('{{ route('admin.content.delete_file') }}', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}' }, body: JSON.stringify({ group: grp, type: type, file: file }) }).then(r=>r.json()).then(j=>{ if(j.ok){ showToast('已删除','success'); loadFilesForCurrent(); } else { showToast('删除失败: '+(j.message||''),'error'); } }).catch(e=>{ showToast('网络错误: '+e.message,'error'); });
+                                });
+                            });
+                        }
+                        // Inline Add/List tab wiring
+                        function initInlineTabs(){
+                            var tabList = document.getElementById('tabListBtn');
+                            var tabAdd = document.getElementById('tabAddBtn');
+                            var panelList = document.getElementById('contentListPanel');
+                            var panelAdd = document.getElementById('contentAddPanel');
+                            function showList(){ panelList.style.display='block'; panelAdd.style.display='none'; tabList.style.opacity=1; tabAdd.style.opacity=0.6; }
+                            function showAdd(){ panelList.style.display='none'; panelAdd.style.display='block'; tabList.style.opacity=0.6; tabAdd.style.opacity=1; }
+                            tabList?.addEventListener('click', showList);
+                            tabAdd?.addEventListener('click', showAdd);
+
+                            // Populate inline group/type selects
+                            fetch('{{ route('admin.sites.json') }}').then(r=>r.json()).then(list=>{
+                                var g = document.getElementById('add_inline_group'); if(!g) return;
+                                g.innerHTML = '';
+                                list.forEach(function(item){ var o = document.createElement('option'); o.value = (item.key || item.name); o.textContent = (item.name || item.key || ''); g.appendChild(o); });
+                                var cur = '{{ $resource_group ?? 'default' }}'; if(g.querySelector('option[value="'+cur+'"]')) g.value = cur;
+                                document.getElementById('add_inline_type').value = '{{ $resource_tab ?? 'keywords' }}';
+                            }).catch(e=>{ console.warn('无法加载分组', e); });
+
+                            // cancel button returns to list
+                            document.getElementById('add_inline_cancel')?.addEventListener('click', function(){ showList(); });
+
+                            // submit inline add
+                            function submitInlineAdd(e){
+                                try{
+                                    // prevent re-entrancy
+                                    if(submitInlineAdd._running) return;
+                                    var btn = null;
+                                    if (e && e.currentTarget && e.currentTarget.id === 'add_inline_submit') btn = e.currentTarget;
+                                    else if (e && e.target && e.target.closest) btn = e.target.closest('#add_inline_submit');
+                                    if(!btn) return;
+                                    var errEl = document.getElementById('add_inline_error'); if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
+                                    btn.disabled = true; btn.style.opacity = '0.6';
+                                    submitInlineAdd._running = true;
+                                    var grpEl = document.getElementById('add_inline_group');
+                                    var grp = (grpEl && grpEl.value) ? grpEl.value : '{{ $resource_group ?? 'default' }}';
+                                    var typeEl = document.getElementById('add_inline_type');
+                                    var type = (typeEl && typeEl.value) ? typeEl.value : '{{ $resource_tab ?? 'keywords' }}';
+                                    var name = (document.getElementById('add_inline_name') && document.getElementById('add_inline_name').value) ? document.getElementById('add_inline_name').value : 'new.txt';
+                                    var content = (document.getElementById('add_inline_content') && document.getElementById('add_inline_content').value) ? document.getElementById('add_inline_content').value : '';
+                                    var fileInput = document.getElementById('add_inline_file');
+                                    var fd = new FormData(); fd.append('_token','{{ csrf_token() }}'); fd.append('group', grp); fd.append('type', type);
+                                    if (fileInput && fileInput.files && fileInput.files[0]) {
+                                        // Client-side size check to avoid server 413 responses.
+                                        var MAX_BYTES = 2 * 1024 * 1024; // must match server-side limit
+                                        if (fileInput.files[0].size > MAX_BYTES) {
+                                            var msg = '文件太大，最大允许 2 MB';
+                                            if (errEl) { errEl.style.display = 'block'; errEl.textContent = msg; }
+                                            showToast(msg, 'error');
+                                            btn.disabled = false; btn.style.opacity = '1'; submitInlineAdd._running = false;
+                                            return;
+                                        }
+                                        fd.append('file', fileInput.files[0]);
+                                    }
+                                    else { fd.append('name', name); fd.append('content', content); }
+
+                                    fetch('{{ route('admin.content.resources.add') }}', { method:'POST', body: fd }).then(function(r){
+                                        return r.json().then(function(j){ return { status: r.status, body: j }; });
+                                    }).then(function(resp){
+                                        var j = resp.body;
+                                        if (j && j.ok){ showToast('已添加','success'); try{ showList(); }catch(e){}; loadFilesForCurrent(); }
+                                        else { var msg = (j && j.message) ? j.message : ('HTTP ' + resp.status); if(errEl){ errEl.style.display='block'; errEl.textContent = msg; } showToast('添加失败: '+msg,'error'); }
+                                    }).catch(function(e){ if(errEl){ errEl.style.display='block'; errEl.textContent = e.message; } showToast('网络错误: '+e.message,'error'); })
+                                    .finally(function(){ btn.disabled = false; btn.style.opacity = '1'; submitInlineAdd._running = false; });
+                                }catch(ex){ console.error('submitInlineAdd failed', ex); }
+                            }
+
+                            // Primary binding
+                            var inlineBtn = document.getElementById('add_inline_submit'); if(inlineBtn){ if(!inlineBtn._bound){ inlineBtn.addEventListener('click', submitInlineAdd); inlineBtn._bound = true; } }
+                            // Fallback delegated binding in case of dynamic replacement (add this delegated handler only once)
+                            if(!window._submitInlineDelegatedAdded){
+                                window._submitInlineDelegatedAdded = true;
+                                document.addEventListener('click', function(ev){
+                                    var b = ev.target.closest && ev.target.closest('#add_inline_submit');
+                                    if(!b) return;
+                                    ev.preventDefault();
+                                    // If primary button has explicit binding, skip delegated call (primary handler will run)
+                                    if(b._bound) return;
+                                    // Also skip if a submission is currently running
+                                    if(submitInlineAdd._running) return;
+                                    submitInlineAdd(ev);
+                                });
+                            }
+                        }
                         // initialize on load
                         document.addEventListener('DOMContentLoaded', function(){
                             // Immediately set tab from URL so clicking left-nav links with ?tab=columns (etc.) works
@@ -1419,8 +1704,43 @@
                             }catch(e){ console.warn(e); }
 
                             loadGroupsToSelects();
-                            setTimeout(loadFilesForCurrent, 500);
+                            setTimeout(function(){ loadFilesForCurrent(); bindDeleteButtons(); initInlineTabs(); }, 500);
+                            // Initialize Sites and Models tab panels
+                            try{ initSitesTabs(); }catch(e){}
+                            try{ initModelsTabs(); }catch(e){}
                         });
+                    </script>
+
+                    <script>
+                        // Sites tab wiring
+                        function initSitesTabs(){
+                            var listBtn = document.getElementById('sitesTabListBtn');
+                            var addBtn = document.getElementById('sitesTabAddBtn');
+                            var listPanel = document.getElementById('sitesListPanel');
+                            var addPanel = document.getElementById('sitesAddPanel');
+                            if(!listBtn || !addBtn || !listPanel || !addPanel) return;
+                            function showList(){ listPanel.style.display='block'; addPanel.style.display='none'; listBtn.style.opacity=1; addBtn.style.opacity=0.6; }
+                            function showAdd(){ listPanel.style.display='none'; addPanel.style.display='block'; listBtn.style.opacity=0.6; addBtn.style.opacity=1; }
+                            listBtn.addEventListener('click', showList);
+                            addBtn.addEventListener('click', showAdd);
+                            // default to list
+                            showList();
+                        }
+
+                        // Models tab wiring
+                        function initModelsTabs(){
+                            var listBtn = document.getElementById('modelsTabListBtn');
+                            var addBtn = document.getElementById('modelsTabAddBtn');
+                            var listPanel = document.getElementById('modelsListPanel');
+                            var addPanel = document.getElementById('modelsAddPanel');
+                            if(!listBtn || !addBtn || !listPanel || !addPanel) return;
+                            function showList(){ listPanel.style.display='block'; addPanel.style.display='none'; listBtn.style.opacity=1; addBtn.style.opacity=0.6; }
+                            function showAdd(){ listPanel.style.display='none'; addPanel.style.display='block'; listBtn.style.opacity=0.6; addBtn.style.opacity=1; }
+                            listBtn.addEventListener('click', showList);
+                            addBtn.addEventListener('click', showAdd);
+                            // default to list
+                            showList();
+                        }
                     </script>
 
                     
@@ -1456,6 +1776,27 @@
             });
         })();
     </script>
+    <script>
+        // Auto-submit filter forms on change (debounced)
+        (function(){
+            var formIds = ['contentFiltersForm','logsRangeForm','spidersRangeForm','oplogsRangeForm'];
+            formIds.forEach(function(fid){
+                var f = document.getElementById(fid);
+                if(!f) return;
+                (function(form){
+                    var timeout = null;
+                    function submitDebounced(){
+                        if(timeout) clearTimeout(timeout);
+                        timeout = setTimeout(function(){ try{ form.submit(); }catch(e){ console.warn('submit failed', e); } }, 250);
+                    }
+                    Array.from(form.querySelectorAll('input, select')).forEach(function(el){
+                        el.addEventListener('change', submitDebounced);
+                        el.addEventListener('input', submitDebounced);
+                    });
+                })(f);
+            });
+        })();
+    </script>
     
     <!-- Modals for add/edit group and model -->
     <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
@@ -1477,7 +1818,22 @@
     <!-- Toast container -->
     <div id="toastContainer" style="position:fixed;right:18px;bottom:18px;z-index:10000;display:flex;flex-direction:column;gap:8px"></div>
 
+    <!-- Config tooltip (shows file path on hover) -->
+    <div id="configTooltip" style="position:fixed;pointer-events:none;display:none;z-index:11000;padding:8px 10px;background:rgba(0,0,0,0.8);color:#fff;border-radius:6px;font-size:12px;max-width:320px;word-break:break-all"></div>
+
     <script>
+        // Global toast helper (single canonical definition)
+        function showToast(msg, type){
+            var c = document.getElementById('toastContainer');
+            if(!c) return; var el = document.createElement('div');
+            el.style.background = (type==='error') ? '#ffefef' : '#f0fff4';
+            el.style.border = (type==='error') ? '1px solid #f5c2c7' : '1px solid #c6f6d5';
+            el.style.color = (type==='error') ? '#9b1c1c' : '#064e3b';
+            el.style.padding = '8px 12px'; el.style.borderRadius='8px'; el.style.boxShadow='0 6px 18px rgba(2,6,23,0.06)'; el.textContent = msg;
+            c.appendChild(el);
+            setTimeout(function(){ el.style.opacity = '0'; setTimeout(()=>el.remove(),300); }, 4200);
+        }
+
         (function(){
             const backdrop = document.getElementById('modalBackdrop');
             const titleEl = document.getElementById('modalTitle');
@@ -1515,6 +1871,10 @@
                         <input type="text" id="modal_group_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.name) ? existing.name.replace(/"/g,'&quot;') : ''}">
                     </div>
                     <div style="margin-top:8px">
+                        <label class="small">唯一 key (英数字和下划线)</label>
+                        <input type="text" id="modal_group_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.key) ? existing.key : ''}" title="用于内部标识，建议小写字母、数字和下划线">
+                    </div>
+                    <div style="margin-top:8px">
                         <label class="small">域名 (每行一条)</label>
                         <textarea id="modal_group_domains" style="width:100%;min-height:120px;border:1px solid rgba(0,0,0,0.06);padding:8px;border-radius:8px">${(existing && Array.isArray(existing.domains)) ? existing.domains.join('\n') : ''}</textarea>
                     </div>
@@ -1538,6 +1898,7 @@
                     // Collect values from modal
                     var obj = {};
                     obj.name = document.getElementById('modal_group_name').value || '';
+                    obj.key = document.getElementById('modal_group_key')?.value || '';
                     obj.domains = (document.getElementById('modal_group_domains').value || '').split('\n').map(s=>s.trim()).filter(Boolean);
                     obj.force_www = !!document.getElementById('modal_force_www').checked;
                     obj.force_mobile = !!document.getElementById('modal_force_mobile').checked;
@@ -1553,7 +1914,7 @@
                             else { showToast(res.j.message || '保存失败', 'error'); }
                         }).catch(e=>{ showToast('网络错误: '+e.message,'error'); });
                 } });
-                // After modal content inserted, populate models select
+                // After modal content inserted, populate models select and wire key auto-generation
                 setTimeout(function(){
                     var sel = document.getElementById('modal_group_model_select');
                     var hidden = document.getElementById('modal_group_model_hidden');
@@ -1569,6 +1930,28 @@
                         });
                         if(hidden && hidden.value){ sel.value = hidden.value; }
                     }).catch(e=>{ console.error('无法加载模型列表', e); });
+
+                    // Auto-generate unique key for new groups and lock key on edit
+                    try{
+                        var keyInp = document.getElementById('modal_group_key');
+                        var nameInp = document.getElementById('modal_group_name');
+                        var cachedGroups = [];
+                        // load existing groups to check uniqueness
+                        fetch('{{ route('admin.sites.json') }}').then(r=>r.json()).then(list=>{ cachedGroups = list || []; }).catch(()=>{ cachedGroups = []; });
+
+                        function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9_\-]+/g,'_').replace(/(^_+|_+$)/g,''); }
+
+                        if (existing && existing.key) {
+                            // editing: lock key
+                            if(keyInp){ keyInp.readOnly = true; keyInp.style.background = 'rgba(0,0,0,0.03)'; keyInp.title = '编辑时不允许修改 key'; }
+                        } else {
+                            var userEditedKey = false;
+                            keyInp?.addEventListener('input', function(){ userEditedKey = true; });
+                            nameInp?.addEventListener('input', function(){ if(userEditedKey) return; var base = slugify(this.value) || 'group'; var candidate = base; var i = 1; var keys = (cachedGroups||[]).map(function(g){ return (g.key||g.name||'').toLowerCase(); }); while(keys.includes(candidate.toLowerCase())){ candidate = base + '_' + i; i++; } if(keyInp) keyInp.value = candidate; });
+                            // initial trigger
+                            if(nameInp && !keyInp.value){ nameInp.dispatchEvent(new Event('input')); }
+                        }
+                    }catch(e){ console.warn('group key generation failed', e); }
                 });
                     // after models select populated, also wire autosize for domains textarea to avoid inner scrollbar
                 
@@ -1623,36 +2006,65 @@
                         <textarea id="modal_model_template" style="width:100%;min-height:160px;border:1px solid rgba(0,0,0,0.06);padding:8px;border-radius:8px" placeholder="page => template.html\nlist => list.html"></textarea>
                     </div>
                 `;
-                openModal({ title: existing ? '编辑模型' : '添加模型', html: html, onSave: function(){
-                    // parse multiline mapping into object
-                    var tmplTxt = document.getElementById('modal_model_template').value || '';
-                    var lines = tmplTxt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-                    var mapping = {};
-                    lines.forEach(function(ln){
-                        var parts = ln.split(/=>/);
-                        if(parts.length >= 2){
-                            var k = parts[0].trim();
-                            var v = parts.slice(1).join('=>').trim();
-                            if(k) mapping[k] = v;
-                        }
-                    });
-                    // ensure defaults
-                    if(Object.keys(mapping).length === 0){ mapping = { page: 'template.html', list: 'list.html' }; }
-                    if(!mapping.page) mapping.page = 'template.html';
-                    if(!mapping.list) mapping.list = mapping.list || 'list.html';
 
-                    var name = document.getElementById('modal_model_name').value || '';
-                    var key = document.getElementById('modal_model_key').value || '';
+                // Helper: ensure hidden form exists and set values safely
+                function submitModelPayload(modelsArr, origKeyVal){
+                    var form = document.getElementById('modelForm');
+                    if(!form){
+                        // create and append to body as fallback
+                        form = document.createElement('form'); form.id = 'modelForm'; form.method = 'POST'; form.action = '{{ route('admin.models.save') }}'; form.style.display = 'none';
+                        var token = document.createElement('input'); token.type='hidden'; token.name='_token'; token.value='{{ csrf_token() }}'; form.appendChild(token);
+                        var m = document.createElement('input'); m.type='hidden'; m.name='models_json'; m.id='models_json_input'; form.appendChild(m);
+                        var o = document.createElement('input'); o.type='hidden'; o.name='_orig_key'; o.id='_orig_key_input'; form.appendChild(o);
+                        document.body.appendChild(form);
+                    }
+                    var mEl = document.getElementById('models_json_input'); if(mEl) mEl.value = JSON.stringify(modelsArr);
+                    var oEl = document.getElementById('_orig_key_input'); if(oEl) oEl.value = origKeyVal || '';
+                    try{ form.submit(); }catch(e){
+                        // fallback: send via fetch if submit fails
+                        fetch(form.action, { method: 'POST', headers: {'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body: JSON.stringify({ models_json: JSON.stringify(modelsArr), _orig_key: origKeyVal || '' }) }).then(r=>{ location.reload(); }).catch(err=>{ alert('保存失败: '+(err.message||err)); });
+                    }
+                }
+
+                openModal({ title: existing ? '编辑模型' : '添加模型', html: html, onSave: function(){
+                    var tmplTxt = document.getElementById('modal_model_template')?.value || '';
+                    var mapping = {};
+                    // Try parse as JSON first (user pasted JSON)
+                    try {
+                        var j = JSON.parse(tmplTxt);
+                        if (j && typeof j === 'object') {
+                            mapping = j;
+                        }
+                    } catch(e) {
+                        // not JSON - fall back to line parsing
+                        var lines = tmplTxt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+                        lines.forEach(function(ln){
+                            var parts = ln.split(/=>/);
+                            if(parts.length >= 2){
+                                var k = parts[0].trim();
+                                var v = parts.slice(1).join('=>').trim();
+                                if(k) mapping[k] = v;
+                            }
+                        });
+                    }
+                    // ensure defaults if still empty
+                    if(Object.keys(mapping).length === 0){ mapping = { page: 'template.html', list: 'list.html' }; }
+
+                    var name = document.getElementById('modal_model_name')?.value || '';
+                    var key = document.getElementById('modal_model_key')?.value || '';
                     var models = [];
                     models.push({ name: name, key: key, template: mapping });
-                    document.getElementById('models_json_input').value = JSON.stringify(models);
-                    document.getElementById('modelForm').submit();
+                    // orig key for edit
+                    var orig = existing && existing.key ? existing.key : '';
+                    submitModelPayload(models, orig);
                 } });
 
                 // after modal inserted, prefill template textarea from existing.template if present
                 setTimeout(function(){
                     try{
                         var ta = document.getElementById('modal_model_template');
+                        var nameInp = document.getElementById('modal_model_name');
+                        var keyInp = document.getElementById('modal_model_key');
                         if(!ta) return;
                         if(existing && existing.template){
                             if(typeof existing.template === 'string'){
@@ -1665,7 +2077,28 @@
                         } else {
                             ta.value = 'page => template.html\nlist => list.html';
                         }
-                    }catch(e){console.error(e);}
+                        // Also set the hidden original key field for edit operations if present
+                        var origEl = document.getElementById('_orig_key_input'); if(origEl) origEl.value = (existing && existing.key) ? existing.key : '';
+
+                        // If editing, lock the key field and visually indicate it
+                        if (existing && existing.key) {
+                            if(keyInp){ keyInp.readOnly = true; keyInp.style.background = 'rgba(0,0,0,0.03)'; keyInp.title = '编辑时不允许修改 key'; }
+                        } else {
+                            // For new models: auto-generate key from name and ensure uniqueness
+                            var cachedModels = [];
+                            fetch('{{ route('admin.models.list') }}').then(r=>r.json()).then(list=>{ cachedModels = list || []; }).catch(()=>{ cachedModels = []; });
+                            function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9_\-]+/g,'_').replace(/^_+|_+$/g,''); }
+                            var userEditedKey = false;
+                            keyInp?.addEventListener('input', function(){ userEditedKey = true; });
+                            nameInp?.addEventListener('input', function(){ if(userEditedKey) return; var base = slugify(this.value) || 'model'; var candidate = base; var i=1; var keys = (cachedModels||[]).map(function(m){ return (m.key||'').toLowerCase(); }); while(keys.includes(candidate.toLowerCase())){ candidate = base + '_' + i; i++; } if(keyInp) keyInp.value = candidate; });
+                            // trigger generation on initial load if name present
+                            if(nameInp && !keyInp.value){ nameInp.dispatchEvent(new Event('input')); }
+                        }
+
+                        // autosize template textarea
+                        function autosize(el){ if(!el) return; el.style.overflow='hidden'; el.style.height='auto'; el.style.height = (el.scrollHeight + 4) + 'px'; }
+                        autosize(ta); ta.addEventListener('input', function(){ autosize(ta); });
+                    }catch(e){console.error(e);} 
                 }, 60);
             };
 
@@ -1782,6 +2215,86 @@
 
         window.addEventListener('load', function(){ initChart('logs-chart','#0b84ff'); initChart('spiders-chart','#ff7a59'); });
         window.addEventListener('resize', function(){ setTimeout(function(){ initChart('logs-chart','#0b84ff'); initChart('spiders-chart','#ff7a59'); }, 120); });
+    </script>
+    <script>
+        // Show config file path tooltip when hovering sidebar links that have data-config
+        (function(){
+            var tooltip = document.getElementById('configTooltip');
+            if(!tooltip) return;
+            var hoverDelay = 300; var hideDelay = 120; var enterTimer = null; var leaveTimer = null;
+
+            function show(el){
+                var text = el.getAttribute('data-config');
+                if(!text) return;
+                tooltip.textContent = text;
+                tooltip.style.display = 'block';
+                var rect = el.getBoundingClientRect();
+                var top = rect.top + window.scrollY + rect.height/2 - tooltip.offsetHeight/2;
+                var left = rect.right + 12;
+                // if overflow right, place to left
+                if(left + tooltip.offsetWidth > window.innerWidth - 8){ left = rect.left - tooltip.offsetWidth - 12; }
+                // ensure visible Y
+                if(top < 8) top = 8; if(top + tooltip.offsetHeight > window.innerHeight - 8) top = window.innerHeight - tooltip.offsetHeight - 8;
+                tooltip.style.top = top + 'px'; tooltip.style.left = left + 'px';
+            }
+            function hide(){ tooltip.style.display = 'none'; }
+
+            document.querySelectorAll('aside.sidebar a[data-config]').forEach(function(a){
+                a.addEventListener('mouseenter', function(e){ clearTimeout(leaveTimer); enterTimer = setTimeout(function(){ show(a); }, hoverDelay); });
+                a.addEventListener('mouseleave', function(e){ clearTimeout(enterTimer); leaveTimer = setTimeout(function(){ hide(); }, hideDelay); });
+            });
+        })();
+    </script>
+    <script>
+        // AJAXify content filters: fetch filtered content and replace only the list container
+        (function(){
+            var form = document.getElementById('contentFiltersForm');
+            var container = document.getElementById('contentListContainer');
+            if(!form || !container) return;
+
+            // helper: serialize form to query string
+            function qsFromForm(f){ var p = new URLSearchParams(); Array.from(f.elements).forEach(function(el){ if(!el.name) return; if(el.type === 'checkbox') p.append(el.name, el.checked ? el.value || '1' : '0'); else p.append(el.name, el.value || ''); }); return p.toString(); }
+
+            // Replace container HTML and rebind internal handlers
+            function replaceContainer(html){
+                // create a temporary element and extract the relevant fragment (matching id)
+                var tmp = document.createElement('div'); tmp.innerHTML = html;
+                var frag = tmp.querySelector('#contentListContainer');
+                if(!frag) return false;
+                container.innerHTML = frag.innerHTML;
+                // rebind pagination links inside new container so clicks fetch via AJAX
+                bindContainerPagination();
+                return true;
+            }
+
+            function fetchAndReplace(url, push){
+                var el = container; el.innerHTML = '<div class="muted">加载中...</div>';
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function(resp){ return resp.text(); }).then(function(text){ var ok = replaceContainer(text); if(push && ok){ try{ history.pushState({}, '', url); }catch(e){} } }).catch(function(e){ el.innerHTML = '<div class="muted">加载失败</div>'; console.error(e); });
+            }
+
+            // intercept form submit (also used by debounce script) to do AJAX instead of full reload
+            form.addEventListener('submit', function(e){ e.preventDefault(); var q = qsFromForm(form); var url = (location.pathname || '') + '?' + q; fetchAndReplace(url, true); });
+
+            // intercept automatic form submits triggered by change/input handlers
+            // replace form.submit to route to AJAX routine
+            (function(){
+                var originalSubmit = form.submit.bind(form);
+                form._originalSubmit = originalSubmit;
+                form.submit = function(){ var q = qsFromForm(form); var url = (location.pathname || '') + '?' + q; fetchAndReplace(url, true); };
+            })();
+
+            // Bind pagination links inside the container to AJAX
+            function bindContainerPagination(){
+                var links = container.querySelectorAll('a.pager-btn');
+                links.forEach(function(a){ if(a._bound) return; a._bound = true; a.addEventListener('click', function(ev){ ev.preventDefault(); var href = a.getAttribute('href'); if(!href) return; fetchAndReplace(href, true); }); });
+            }
+
+            // initial bind
+            bindContainerPagination();
+
+            // handle back/forward navigation
+            window.addEventListener('popstate', function(){ var q = location.search ? location.pathname + location.search : location.pathname; fetchAndReplace(q, false); });
+        })();
     </script>
 </body>
 </html>

@@ -1,13 +1,6 @@
 [
     {
-        "name": "1",
-        "key": "1",
-        "template": {
-            "\/": "index.html"
-        }
-    },
-    {
-        "name": "2",
+        "name": "修改",
         "key": "2",
         "template": {
             "page": "template.html",
@@ -15,11 +8,19 @@
         }
     },
     {
-        "name": "2",
-        "key": "3",
+        "name": "粉丝福利卡",
+        "key": "model",
         "template": {
             "page": "template.html",
             "list": "list.html"
+        }
+    },
+    {
+        "name": "胜多负少",
+        "key": "model_1",
+        "template": {
+            "page": "template.html",
+            "list": "list.html是否"
         }
     }
 ]

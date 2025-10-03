@@ -13,6 +13,8 @@ class AuthController extends Controller
         $pwFile = base_path('data') . DIRECTORY_SEPARATOR . 'password.txt';
         $password = file_exists($pwFile) ? null : (function() use ($pwFile) {
             $p = Str::random(32);
+            $dir = dirname($pwFile);
+            if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
             file_put_contents($pwFile, $p);
             return $p;
         })();

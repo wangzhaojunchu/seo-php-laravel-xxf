@@ -56,7 +56,27 @@ class AdminController extends Controller
 
     public function settings()
     {
-        return view('admin', ['page' => 'settings']);
+        // Load current admin path config if present
+        $cfgFile = base_path('data') . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'config.json';
+        $cfg = ['prefix' => 'admin'];
+        if (file_exists($cfgFile)) {
+            $raw = @file_get_contents($cfgFile);
+            $decoded = @json_decode($raw, true) ?: [];
+            if (!empty($decoded['prefix'])) $cfg['prefix'] = $decoded['prefix'];
+        }
+        return view('admin', ['page' => 'settings', 'admin_config' => $cfg]);
+    }
+
+    // Save admin config (prefix). Accessible via POST from settings page.
+    public function saveAdminConfig(Request $request)
+    {
+        $this->ensureDirectoryExists(base_path('data') . DIRECTORY_SEPARATOR . 'admin');
+        $prefix = (string)$request->input('admin_prefix', 'admin');
+        $prefix = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '', $prefix));
+        if ($prefix === '') $prefix = 'admin';
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'config.json';
+        file_put_contents($file, json_encode(['prefix' => $prefix], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return redirect()->route('admin.settings')->with('status', 'Admin path 已保存: ' . $prefix);
     }
 
     public function passwordForm()
@@ -160,7 +180,9 @@ class AdminController extends Controller
 
     private function logOperation(string $message)
     {
-        $file = storage_path('logs/operation-' . date('Y-m-d') . '.log');
+        $logDir = storage_path('logs');
+        if (!is_dir($logDir)) { @mkdir($logDir, 0755, true); }
+        $file = $logDir . DIRECTORY_SEPARATOR . 'operation-' . date('Y-m-d') . '.log';
         $ip = request()->ip();
         $line = date('Y-m-d H:i:s') . "\t" . $ip . "\t" . $message . "\n";
         file_put_contents($file, $line, FILE_APPEND);
@@ -502,6 +524,14 @@ class AdminController extends Controller
                 'template' => $request->input('group_template', ''),
                 'created_at' => date('Y-m-d H:i:s')
             ];
+            // ensure unique key for the group
+            $existing = [];
+            if (file_exists($file)) {
+                $existing = json_decode(file_get_contents($file), true) ?: [];
+            }
+            if (empty($opt['key'])) {
+                $opt['key'] = $this->generateUniqueGroupKey($opt['name'], $existing);
+            }
             // Load existing groups and append
             $groups = [];
             if (file_exists($file)) {
@@ -637,17 +667,26 @@ class AdminController extends Controller
             $groups = json_decode(file_get_contents($file), true) ?: [];
         }
 
-        // If name exists, replace; otherwise append
+        // If name exists, replace; otherwise append. Ensure group 'key' exists and is unique.
         $replaced = false;
+        $existingKeys = array_map(function($g){ return $g['key'] ?? ($g['name'] ?? ''); }, $groups);
         foreach ($groups as $i => $g) {
             if (($g['name'] ?? '') === ($group['name'] ?? '')) {
-                $groups[$i] = array_merge($g, $group);
+                // merge and ensure key stays or is updated
+                $merged = array_merge($g, $group);
+                if (empty($merged['key'])) {
+                    $merged['key'] = $g['key'] ?? $this->generateUniqueGroupKey($merged['name'], $groups);
+                }
+                $groups[$i] = $merged;
                 $replaced = true;
                 break;
             }
         }
         if (!$replaced) {
             $group['created_at'] = date('Y-m-d H:i:s');
+            if (empty($group['key'])) {
+                $group['key'] = $this->generateUniqueGroupKey($group['name'] ?? 'group', $groups);
+            }
             $groups[] = $group;
         }
 
@@ -685,6 +724,7 @@ class AdminController extends Controller
         $this->ensureDirectoryExists(dirname($file));
 
         $modelsJson = $request->input('models_json', null);
+        $origKey = (string)$request->input('_orig_key', '');
         if ($modelsJson) {
             $decoded = json_decode($modelsJson, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -723,9 +763,16 @@ class AdminController extends Controller
                 } else {
                     $nm['template'] = ['page' => 'template.html', 'list' => 'list.html'];
                 }
-
+                // If an original key is provided (editing), and it matches an existing entry, prefer replacing that one
                 $k = $nm['key'] ?? '';
-                if ($k !== '' && isset($map[$k])) {
+                if ($origKey !== '' && isset($map[$origKey])) {
+                    // replace original entry with new data; set key to new key if changed
+                    $newKey = $k !== '' ? $k : $origKey;
+                    $nm['key'] = $newKey;
+                    $map[$newKey] = array_merge($map[$origKey], $nm);
+                    // if key changed, remove old keyed entry
+                    if ($newKey !== $origKey) unset($map[$origKey]);
+                } elseif ($k !== '' && isset($map[$k])) {
                     // Update fields (merge but ensure template is array)
                     $merged = array_merge($map[$k], $nm);
                     if (!is_array($merged['template'])) $merged['template'] = ['page' => 'template.html'];
@@ -765,6 +812,33 @@ class AdminController extends Controller
 
         file_put_contents($file, json_encode($models, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return redirect()->route('admin.models')->with('status', 'Models saved');
+    }
+
+    // Delete a model by key (AJAX-friendly)
+    public function deleteModel(Request $request)
+    {
+        $key = (string)$request->input('key', '');
+        if ($key === '') {
+            return response()->json(['ok' => false, 'message' => '缺少 model key'], 400);
+        }
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'access' . DIRECTORY_SEPARATOR . 'models.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $models = [];
+        if (file_exists($file)) {
+            $models = json_decode(file_get_contents($file), true) ?: [];
+        }
+        $found = false;
+        $remaining = [];
+        foreach ($models as $m) {
+            if (($m['key'] ?? '') === $key) {
+                $found = true;
+                continue;
+            }
+            $remaining[] = $m;
+        }
+        if (!$found) return response()->json(['ok' => false, 'message' => '未找到模型'], 404);
+        file_put_contents($file, json_encode(array_values($remaining), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return response()->json(['ok' => true, 'message' => '已删除']);
     }
 
     public function accessIp()
@@ -829,18 +903,47 @@ class AdminController extends Controller
 
     // Separate page for content resources management (keywords/columns/tips/suffixes)
     public function showContentResources(Request $request)
-    {   
+    {
         $tab = $request->query('tab', 'keywords');
-        $group = $request->query('group', 'default');
-        $slug = $this->slugify($group ?: 'default');
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $tab;
-        $this->ensureDirectoryExists($dir);
-        $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+        // default to showing all groups as requested
+        $group = $request->query('group', 'all');
         $list = [];
-        foreach ($files as $f) {
-            if (!is_file($f)) continue;
-            $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f))];
+
+        // If "all", aggregate files from every group directory
+        if ($group === 'all' || $group === '') {
+            $base = base_path('data') . DIRECTORY_SEPARATOR . 'group';
+            $this->ensureDirectoryExists($base);
+            $groupDirs = glob($base . DIRECTORY_SEPARATOR . '*') ?: [];
+            foreach ($groupDirs as $gdir) {
+                if (!is_dir($gdir)) continue;
+                $groupKey = basename($gdir);
+                $dir = $gdir . DIRECTORY_SEPARATOR . $tab;
+                if (!is_dir($dir)) continue;
+                $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+                foreach ($files as $f) {
+                    if (!is_file($f)) continue;
+                    $list[] = [
+                        'file' => basename($f),
+                        'size' => filesize($f),
+                        'mtime' => date('Y-m-d H:i:s', filemtime($f)),
+                        'group' => $groupKey,
+                    ];
+                }
+            }
+        } else {
+            // resolve group unique key for storage path and list just that group's files
+            $groupKey = $this->resolveGroupKey($group ?: 'default');
+            $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $groupKey . DIRECTORY_SEPARATOR . $tab;
+            $this->ensureDirectoryExists($dir);
+            $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+            foreach ($files as $f) {
+                if (!is_file($f)) continue;
+                $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f)), 'group' => $groupKey];
+            }
         }
+
+        // sort by mtime desc
+        usort($list, function($a, $b){ return $b['mtime'] <=> $a['mtime']; });
 
         // Render admin view with files list for server-side rendering
         return view('admin', [
@@ -859,18 +962,81 @@ class AdminController extends Controller
         $name = (string)$request->input('name', 'new.txt');
         $content = (string)$request->input('content', '');
         $allowed = ['keywords','columns','tips','suffixes'];
+
         if (!in_array($type, $allowed)) {
-            return redirect()->back()->with('error', 'Invalid type');
+            return response()->json(['ok' => false, 'message' => 'Invalid type'], 400);
         }
-        $slug = $this->slugify($group ?: 'default');
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
+
+        // Prefer group key when directory already exists; fallback to resolver
+        $groupKeyCandidate = $group ?: 'default';
+        $baseGroupDir = base_path('data') . DIRECTORY_SEPARATOR . 'group';
+        $possibleDir = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKeyCandidate;
+        if (is_dir($possibleDir)) {
+            $groupKey = $groupKeyCandidate;
+        } else {
+            $groupKey = $this->resolveGroupKey($group ?: 'default');
+        }
+
+        $dir = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKey . DIRECTORY_SEPARATOR . $type;
         $this->ensureDirectoryExists($dir);
 
-        $safeName = preg_replace('/[^a-z0-9_\-\.]/i', '_', $name);
-        $path = $dir . DIRECTORY_SEPARATOR . $safeName;
-        file_put_contents($path, $content);
+        // If an uploaded file was provided, move it with validation
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            if (!$file->isValid()) {
+                return response()->json(['ok' => false, 'message' => 'Upload error'], 400);
+            }
+            // size limit: 2MB
+            $maxBytes = 2 * 1024 * 1024;
+            if ($file->getSize() > $maxBytes) {
+                return response()->json(['ok' => false, 'message' => 'File too large (max 2MB)'], 413);
+            }
+            // restrict extensions to common text formats
+            $ext = strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
+            $allowedExt = ['txt','csv','md','text'];
+            if ($ext && !in_array($ext, $allowedExt)) {
+                return response()->json(['ok' => false, 'message' => 'Unsupported file type'], 400);
+            }
+            $orig = $file->getClientOriginalName();
+            $safeName = preg_replace('/[^a-z0-9_\-\.]/i', '_', $orig);
+            if (!$safeName) {
+                return response()->json(['ok' => false, 'message' => 'Invalid filename'], 400);
+            }
+            $target = $dir . DIRECTORY_SEPARATOR . $safeName;
+            if (file_exists($target)) {
+                return response()->json(['ok' => false, 'message' => 'File already exists'], 409);
+            }
+            if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+            if (!is_writable($dir)) {
+                $procUser = trim(@shell_exec('whoami')) ?: @get_current_user();
+                return response()->json(['ok' => false, 'message' => 'Directory not writable: ' . $dir, 'process_user' => $procUser], 500);
+            }
+            try {
+                $file->move($dir, $safeName);
+            } catch (\Throwable $e) {
+                return response()->json(['ok' => false, 'message' => 'Failed to move uploaded file: ' . $e->getMessage()], 500);
+            }
+            return response()->json(['ok' => true, 'file' => basename($target)]);
+        }
 
-        return redirect()->route('admin.content.resources', ['tab' => $type, 'group' => $group])->with('status', '已添加');
+        // Otherwise write provided text content with validation
+        if (trim($content) === '') {
+            return response()->json(['ok' => false, 'message' => 'Content is empty'], 400);
+        }
+        $safeName = preg_replace('/[^a-z0-9_\-\.]/i', '_', $name);
+        if (!$safeName) {
+            return response()->json(['ok' => false, 'message' => 'Invalid filename'], 400);
+        }
+        $path = $dir . DIRECTORY_SEPARATOR . $safeName;
+        if (file_exists($path)) {
+            return response()->json(['ok' => false, 'message' => 'File already exists'], 409);
+        }
+        $written = @file_put_contents($path, $content);
+        if ($written === false) {
+            return response()->json(['ok' => false, 'message' => 'Failed to write file'], 500);
+        }
+
+        return response()->json(['ok' => true, 'file' => basename($path), 'message' => '已添加']);
     }
 
     public function generateAiArticle(Request $request)
@@ -952,17 +1118,50 @@ class AdminController extends Controller
         if (!in_array($type, $allowed)) {
             return response()->json(['ok' => false, 'message' => 'Invalid type'], 400);
         }
-
-        // resolve group slug
-        $slug = $this->slugify($group ?: 'default');
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
-        $this->ensureDirectoryExists($dir);
-        $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
         $list = [];
-        foreach ($files as $f) {
-            if (!is_file($f)) continue;
-            $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f))];
+
+        // Load groups mapping (key -> name) so we can show friendly group names
+        $groupsFile = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $groupNameMap = [];
+        if (file_exists($groupsFile)) {
+            $garr = json_decode(file_get_contents($groupsFile), true) ?: [];
+            foreach ($garr as $g) {
+                $k = $g['key'] ?? ($g['name'] ?? '');
+                $n = $g['name'] ?? $k;
+                if ($k !== '') $groupNameMap[$k] = $n;
+            }
         }
+
+        // If group is 'all' or empty, aggregate across all groups
+        if ($group === 'all' || $group === '') {
+            $base = base_path('data') . DIRECTORY_SEPARATOR . 'group';
+            $this->ensureDirectoryExists($base);
+            $groupDirs = glob($base . DIRECTORY_SEPARATOR . '*') ?: [];
+            foreach ($groupDirs as $gdir) {
+                if (!is_dir($gdir)) continue;
+                $groupKey = basename($gdir);
+                $dir = $gdir . DIRECTORY_SEPARATOR . $type;
+                if (!is_dir($dir)) continue;
+                $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+                foreach ($files as $f) {
+                    if (!is_file($f)) continue;
+                    $displayGroup = $groupNameMap[$groupKey] ?? $groupKey;
+                    $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f)), 'group' => $displayGroup, 'group_key' => $groupKey];
+                }
+            }
+        } else {
+            // resolve group unique key
+            $groupKey = $this->resolveGroupKey($group ?: 'default');
+            $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $groupKey . DIRECTORY_SEPARATOR . $type;
+            $this->ensureDirectoryExists($dir);
+            $files = glob($dir . DIRECTORY_SEPARATOR . '*') ?: [];
+            foreach ($files as $f) {
+                if (!is_file($f)) continue;
+                $displayGroup = $groupNameMap[$groupKey] ?? $groupKey;
+                $list[] = ['file' => basename($f), 'size' => filesize($f), 'mtime' => date('Y-m-d H:i:s', filemtime($f)), 'group' => $displayGroup, 'group_key' => $groupKey];
+            }
+        }
+
         usort($list, function($a,$b){ return $b['mtime'] <=> $a['mtime']; });
         return response()->json(['ok' => true, 'files' => $list]);
     }
@@ -985,13 +1184,33 @@ class AdminController extends Controller
             return response()->json(['ok' => false, 'message' => 'Upload error'], 400);
         }
 
-        $slug = $this->slugify($group ?: 'default');
-        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type;
+        // Prefer the provided group value as a key if that directory exists to avoid
+        // parsing groups.json on every upload. Fall back to resolveGroupKey() otherwise.
+        $groupKeyCandidate = $group ?: 'default';
+        $baseGroupDir = base_path('data') . DIRECTORY_SEPARATOR . 'group';
+        $possibleDir = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKeyCandidate;
+        if (is_dir($possibleDir)) {
+            $groupKey = $groupKeyCandidate;
+        } else {
+            $groupKey = $this->resolveGroupKey($group ?: 'default');
+        }
+        $dir = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKey . DIRECTORY_SEPARATOR . $type;
         $this->ensureDirectoryExists($dir);
+
+        // Enforce 2MB limit server-side as well
+        $maxBytes = 2 * 1024 * 1024;
+        if ($file->getSize() > $maxBytes) {
+            return response()->json(['ok' => false, 'message' => 'File too large (max 2MB)'], 413);
+        }
 
         // move uploaded file to dir with sanitized name
         $name = preg_replace('/[^a-z0-9_\-\.]/i', '_', $file->getClientOriginalName());
         $target = $dir . DIRECTORY_SEPARATOR . $name;
+        if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+        if (!is_writable($dir)) {
+            $procUser = trim(@shell_exec('whoami')) ?: @get_current_user();
+            return response()->json(['ok'=>false,'message'=>'Directory not writable: ' . $dir, 'process_user' => $procUser], 500);
+        }
         $file->move($dir, $name);
 
         return response()->json(['ok' => true, 'message' => 'Uploaded', 'file' => basename($target)]);
@@ -1007,8 +1226,16 @@ class AdminController extends Controller
         if (!in_array($type, $allowed) || $file === '') {
             return response()->json(['ok' => false, 'message' => 'Invalid parameters'], 400);
         }
-        $slug = $this->slugify($group ?: 'default');
-        $path = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $type . DIRECTORY_SEPARATOR . basename($file);
+        // Fast-path like upload: use provided group key if directory exists
+        $groupKeyCandidate = $group ?: 'default';
+        $baseGroupDir = base_path('data') . DIRECTORY_SEPARATOR . 'group';
+        $possibleDir = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKeyCandidate . DIRECTORY_SEPARATOR . $type;
+        if (is_dir($possibleDir)) {
+            $groupKey = $groupKeyCandidate;
+        } else {
+            $groupKey = $this->resolveGroupKey($group ?: 'default');
+        }
+        $path = $baseGroupDir . DIRECTORY_SEPARATOR . $groupKey . DIRECTORY_SEPARATOR . $type . DIRECTORY_SEPARATOR . basename($file);
         if (!file_exists($path)) {
             return response()->json(['ok' => false, 'message' => 'File not found'], 404);
         }
@@ -1020,6 +1247,47 @@ class AdminController extends Controller
     {
         $s = preg_replace('/[^a-z0-9_\-]/i', '_', trim(strtolower($name)));
         return $s ?: 'default';
+    }
+
+    /**
+     * Resolve the group's unique key (preferred) from provided group identifier which may be name or key.
+     * If a group matches by name or key in groups.json and has a 'key' field, return that.
+     * Otherwise, if the provided input already looks like a key, return it, else slugify the name.
+     */
+    private function resolveGroupKey(string $groupInput)
+    {
+        $g = trim((string)$groupInput);
+        if ($g === '') return 'default';
+        $groupsFile = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        if (file_exists($groupsFile)) {
+            $groups = json_decode(file_get_contents($groupsFile), true) ?: [];
+            foreach ($groups as $grp) {
+                if (isset($grp['key']) && ($grp['key'] === $g)) return $grp['key'];
+            }
+            foreach ($groups as $grp) {
+                if (isset($grp['name']) && ($grp['name'] === $g) && isset($grp['key']) && $grp['key']) return $grp['key'];
+            }
+        }
+        // If input looks like a safe key, return it
+        if (preg_match('/^[a-z0-9_\-]+$/i', $g)) return $g;
+        return $this->slugify($g);
+    }
+
+    /**
+     * Generate a unique group key from a name against an array of existing groups.
+     * Returns a key string (lowercase, underscores) guaranteed not to collide with existing 'key' values.
+     */
+    private function generateUniqueGroupKey(string $name, array $existingGroups = []): string
+    {
+        $base = $this->slugify($name ?: 'group');
+        $candidate = $base;
+        $i = 1;
+        $existingKeys = array_map(function($g){ return strtolower($g['key'] ?? ($g['name'] ?? '')); }, $existingGroups);
+        while (in_array(strtolower($candidate), $existingKeys)) {
+            $candidate = $base . '_' . $i;
+            $i++;
+        }
+        return $candidate;
     }
 
     private function saveArticle($title, $content, $source)
@@ -1073,5 +1341,111 @@ class AdminController extends Controller
         if (!is_dir($path)) {
             @mkdir($path, 0755, true);
         }
+    }
+
+    // --- Descriptions Manager (per-group description templates) ---
+    public function showDescriptions(Request $request)
+    {
+        $group = $request->query('group', 'default');
+        $slug = $this->slugify($group ?: 'default');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . 'descriptions.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $list = [];
+        if (file_exists($file)) {
+            $list = json_decode(file_get_contents($file), true) ?: [];
+        }
+        // also load existing groups for the select UI
+        $groupsFile = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . 'groups.json';
+        $groups = [];
+        if (file_exists($groupsFile)) {
+            $groups = json_decode(file_get_contents($groupsFile), true) ?: [];
+        }
+        return view('admin', ['page' => 'sites', 'groups' => $groups, 'descriptions_group' => $group, 'descriptions_list' => $list, 'show_descriptions' => true]);
+    }
+
+    // Return descriptions JSON for front-end selects
+    public function descriptionsJson(Request $request)
+    {
+        $group = (string)$request->query('group', 'default');
+        $slug = $this->slugify($group ?: 'default');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . 'descriptions.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $list = [];
+        if (file_exists($file)) {
+            $list = json_decode(file_get_contents($file), true) ?: [];
+        }
+        return response()->json(array_values($list));
+    }
+
+    // Save (create or update) a description template
+    public function saveDescription(Request $request)
+    {
+        $group = (string)$request->input('group', 'default');
+        $id = (string)$request->input('id', '');
+        $name = (string)$request->input('name', '');
+        $template = (string)$request->input('template', '');
+
+        if (trim($name) === '' || trim($template) === '') {
+            return response()->json(['ok' => false, 'message' => '名称和模板不能为空'], 400);
+        }
+        $slug = $this->slugify($group ?: 'default');
+        $dir = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug;
+        $this->ensureDirectoryExists($dir);
+        $file = $dir . DIRECTORY_SEPARATOR . 'descriptions.json';
+
+        $list = [];
+        if (file_exists($file)) {
+            $list = json_decode(file_get_contents($file), true) ?: [];
+        }
+
+        // If id provided, update; otherwise create new id
+        if ($id !== '') {
+            $found = false;
+            foreach ($list as &$it) {
+                if (($it['id'] ?? '') === $id) {
+                    $it['name'] = $name;
+                    $it['template'] = $template;
+                    $it['updated_at'] = date('Y-m-d H:i:s');
+                    $found = true;
+                    break;
+                }
+            }
+            unset($it);
+            if (!$found) {
+                // treat as new
+                $list[] = ['id' => $id, 'name' => $name, 'template' => $template, 'created_at' => date('Y-m-d H:i:s')];
+            }
+        } else {
+            // generate a simple id
+            $newId = Str::uuid();
+            $list[] = ['id' => (string)$newId, 'name' => $name, 'template' => $template, 'created_at' => date('Y-m-d H:i:s')];
+        }
+
+        file_put_contents($file, json_encode(array_values($list), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return response()->json(['ok' => true, 'message' => '已保存']);
+    }
+
+    // Delete a description template by id
+    public function deleteDescription(Request $request)
+    {
+        $group = (string)$request->input('group', 'default');
+        $id = (string)$request->input('id', '');
+        if ($id === '') return response()->json(['ok' => false, 'message' => '缺少 id'], 400);
+        $slug = $this->slugify($group ?: 'default');
+        $file = base_path('data') . DIRECTORY_SEPARATOR . 'group' . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . 'descriptions.json';
+        $this->ensureDirectoryExists(dirname($file));
+        $list = [];
+        if (file_exists($file)) {
+            $list = json_decode(file_get_contents($file), true) ?: [];
+        }
+        $remaining = [];
+        $found = false;
+        foreach ($list as $it) {
+            if (($it['id'] ?? '') === $id) { $found = true; continue; }
+            $remaining[] = $it;
+        }
+        if (!$found) return response()->json(['ok' => false, 'message' => '未找到记录'], 404);
+        file_put_contents($file, json_encode(array_values($remaining), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return response()->json(['ok' => true, 'message' => '已删除']);
     }
 }

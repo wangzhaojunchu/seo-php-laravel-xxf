@@ -11,10 +11,24 @@ class AdminActionLog
     {
         $start = microtime(true);
         $response = $next($request);
-
         try {
+            // Determine admin prefix (same logic as routes)
+            $adminPrefix = 'admin';
+            $cfgFile = base_path('data') . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . 'config.json';
+            if (getenv('ADMIN_PATH')) {
+                $adminPrefix = trim(getenv('ADMIN_PATH')) ?: $adminPrefix;
+            } elseif (env('ADMIN_PATH')) {
+                $adminPrefix = trim(env('ADMIN_PATH')) ?: $adminPrefix;
+            } elseif (file_exists($cfgFile)) {
+                $raw = @file_get_contents($cfgFile);
+                $decoded = @json_decode($raw, true) ?: [];
+                if (!empty($decoded['prefix'])) {
+                    $adminPrefix = trim($decoded['prefix']);
+                }
+            }
+
             // Only record admin area actions when session indicates admin
-            if ($request->is('admin*') && $request->session()->get('is_admin')) {
+            if ($request->is($adminPrefix . '*') && $request->session()->get('is_admin')) {
                 $dir = base_path('data') . DIRECTORY_SEPARATOR . 'action';
                 if (!is_dir($dir)) {
                     @mkdir($dir, 0755, true);
@@ -37,7 +51,7 @@ class AdminActionLog
                 $action = '';
                 try {
                     // IP rules
-                    if (stripos($uri, '/admin/access/ip') !== false && in_array($method, ['POST', 'PUT'])) {
+                    if (stripos($uri, '/'. $adminPrefix . '/access/ip') !== false && in_array($method, ['POST', 'PUT'])) {
                         $allow = isset($input['allow_ips']) ? trim($input['allow_ips']) : '';
                         $deny = isset($input['deny_ips']) ? trim($input['deny_ips']) : '';
                         $ac = $allow === '' ? 0 : count(array_filter(array_map('trim', preg_split('/\r?\n/', $allow))));
@@ -46,7 +60,7 @@ class AdminActionLog
                     }
 
                     // UA rules
-                    if ($action === '' && stripos($uri, '/admin/access/ua') !== false && in_array($method, ['POST', 'PUT'])) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/access/ua') !== false && in_array($method, ['POST', 'PUT'])) {
                         $allow = isset($input['allow_uas']) ? trim($input['allow_uas']) : '';
                         $deny = isset($input['deny_uas']) ? trim($input['deny_uas']) : '';
                         $ac = $allow === '' ? 0 : count(array_filter(array_map('trim', preg_split('/\r?\n/', $allow))));
@@ -55,38 +69,38 @@ class AdminActionLog
                     }
 
                     // Password
-                    if ($action === '' && stripos($uri, '/admin/password') !== false && in_array($method, ['POST'])) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/password') !== false && in_array($method, ['POST'])) {
                         $action = 'Updated admin password';
                     }
 
                     // Sites
-                    if ($action === '' && stripos($uri, '/admin/sites') !== false && in_array($method, ['POST', 'PUT'])) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/sites') !== false && in_array($method, ['POST', 'PUT'])) {
                         $sites = isset($input['sites']) ? trim($input['sites']) : '';
                         $count = $sites === '' ? 0 : count(array_filter(array_map('trim', preg_split('/\r?\n/', $sites))));
                         $action = "Saved sites ({$count} entries)";
                     }
 
                     // Models
-                    if ($action === '' && stripos($uri, '/admin/models') !== false && in_array($method, ['POST', 'PUT'])) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/models') !== false && in_array($method, ['POST', 'PUT'])) {
                         $models = isset($input['models']) ? trim($input['models']) : '';
                         $count = $models === '' ? 0 : count(array_filter(array_map('trim', preg_split('/\r?\n/', $models))));
                         $action = "Saved models ({$count} entries)";
                     }
 
                     // Repair actions
-                    if ($action === '' && stripos($uri, '/admin/repair') !== false && isset($input['action'])) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/repair') !== false && isset($input['action'])) {
                         $action = 'Executed repair: ' . (string)$input['action'];
                     }
 
                     // Generate fake logs
-                    if ($action === '' && stripos($uri, '/admin/generate_fake_logs') !== false) {
+                    if ($action === '' && stripos($uri, '/'. $adminPrefix . '/generate-fake-logs') !== false) {
                         $d = $input['date'] ?? date('Y-m-d');
                         $c = isset($input['count']) ? (int)$input['count'] : 0;
                         $action = "Generated fake logs for {$d} (count={$c})";
                     }
 
                     // Content generation (simple)
-                    if ($action === '' && (stripos($uri, '/admin/content/ai') !== false || stripos($uri, '/admin/content/ai/generate') !== false) && isset($input['topic'])) {
+                    if ($action === '' && (stripos($uri, '/'. $adminPrefix . '/content/ai') !== false || stripos($uri, '/'. $adminPrefix . '/content/ai/generate') !== false) && isset($input['topic'])) {
                         $t = trim((string)$input['topic']);
                         $action = 'Generated AI article: ' . ($t === '' ? '(no title)' : ($t));
                     }

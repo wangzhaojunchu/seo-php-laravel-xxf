@@ -58,8 +58,8 @@ class ArticleApiController extends Controller
         $base = base_path('data') . DIRECTORY_SEPARATOR . 'article';
         $publishedDir = $base . DIRECTORY_SEPARATOR . 'published';
         $unpublishedDir = $base . DIRECTORY_SEPARATOR . 'unpublished';
-        if (!is_dir($publishedDir)) { @mkdir($publishedDir, 0755, true); }
-        if (!is_dir($unpublishedDir)) { @mkdir($unpublishedDir, 0755, true); }
+    if (!is_dir($publishedDir)) { @mkdir($publishedDir, 0755, true); }
+    if (!is_dir($unpublishedDir)) { @mkdir($unpublishedDir, 0755, true); }
 
         $id = (string) Str::uuid();
         $now = date('Y-m-d H:i:s');
@@ -79,8 +79,9 @@ class ArticleApiController extends Controller
         }
 
         $targetDir = $publish ? $publishedDir : $unpublishedDir;
-        $filePath = $targetDir . DIRECTORY_SEPARATOR . $id . '.json';
-        file_put_contents($filePath, json_encode($article, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $filePath = $targetDir . DIRECTORY_SEPARATOR . $id . '.json';
+    if (!is_dir($targetDir)) { @mkdir($targetDir, 0755, true); }
+    file_put_contents($filePath, json_encode($article, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         return response()->json(['success' => true, 'id' => $id, 'status' => $status], 201);
     }

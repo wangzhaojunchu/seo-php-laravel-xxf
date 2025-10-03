@@ -1,0 +1,84 @@
+﻿Stack remaining count: 1
+Unclosed openings:
+ at line : 
+--- tail 80 lines ---
+                el.addEventListener('click', toggle);
+                el.addEventListener('keypress', function(e){ if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+            });
+        })();
+    </script>
+
+    <!-- Chart.js from CDN for lightweight interactive charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        function initChart(canvasId, color){
+            var c = document.getElementById(canvasId);
+            if(!c) return;
+            try{
+                var labels = JSON.parse(c.getAttribute('data-labels') || '[]');
+                var counts = JSON.parse(c.getAttribute('data-counts') || '[]');
+            }catch(e){ return; }
+            var ctx = c.getContext('2d');
+            // destroy existing chart if present
+            if (c._chartInstance) {
+                c._chartInstance.destroy();
+            }
+            c._chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '',
+                        data: counts,
+                        borderColor: color || '#0b84ff',
+                        backgroundColor: (color || '#0b84ff'),
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 2,
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: true, ticks: { beginAtZero: true } } }
+                }
+            });
+        }
+        // Quick-range buttons helper (1 week, 1 month, 6 months, 1 year)
+        function setQuickRange(days, fromId, toId){
+            var to = new Date();
+            var from = new Date();
+            from.setDate(to.getDate() - parseInt(days,10) + 1);
+            function toYMD(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+            var elFrom = document.getElementById(fromId); var elTo = document.getElementById(toId);
+            if(elFrom) elFrom.value = toYMD(from);
+            if(elTo) elTo.value = toYMD(to);
+        }
+        document.addEventListener('click', function(e){
+            var btn = e.target.closest && e.target.closest('.range-btn');
+            if(!btn) return;
+            e.preventDefault();
+            var days = btn.getAttribute('data-range');
+            // find the nearest form container to decide which inputs to set
+            var form = btn.closest && btn.closest('form');
+            if(!form) return;
+            var fromId = null, toId = null;
+            if(form.id === 'logsRangeForm'){ fromId='logs_from'; toId='logs_to'; }
+            else if(form.id === 'spidersRangeForm'){ fromId='spiders_from'; toId='spiders_to'; }
+            else if(form.id === 'oplogsRangeForm'){ fromId='op_from'; toId='op_to'; }
+            if(fromId && toId){
+                setQuickRange(days, fromId, toId);
+                // toggle active class on sibling buttons
+                var grp = form.querySelectorAll('.range-btn');
+                grp.forEach(function(b){ b.classList.remove('range-active'); });
+                btn.classList.add('range-active');
+                // auto-submit form
+                setTimeout(function(){ form.submit(); }, 120);
+            }
+        });
+
+        window.addEventListener('load', function(){ initChart('logs-chart','#0b84ff'); initChart('spiders-chart','#ff7a59'); });
+        window.addEventListener('resize', function(){ setTimeout(function(){ initChart('logs-chart','#0b84ff'); initChart('spiders-chart','#ff7a59'); }, 120); });
+    </script>
+</body>
+</html>
