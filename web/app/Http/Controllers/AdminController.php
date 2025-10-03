@@ -671,7 +671,7 @@ class AdminController extends Controller
         $replaced = false;
         $existingKeys = array_map(function($g){ return $g['key'] ?? ($g['name'] ?? ''); }, $groups);
         foreach ($groups as $i => $g) {
-            if (($g['name'] ?? '') === ($group['name'] ?? '')) {
+            if (($g['key'] ?? '') === ($group['key'] ?? '')) {
                 // merge and ensure key stays or is updated
                 $merged = array_merge($g, $group);
                 if (empty($merged['key'])) {
@@ -684,8 +684,28 @@ class AdminController extends Controller
         }
         if (!$replaced) {
             $group['created_at'] = date('Y-m-d H:i:s');
+            // If no key was provided, generate a strong random 32-hex key (fallback to slug if random fails)
             if (empty($group['key'])) {
-                $group['key'] = $this->generateUniqueGroupKey($group['name'] ?? 'group', $groups);
+                try {
+                    $bytes = random_bytes(16);
+                    $hex = bin2hex($bytes);
+                    // ensure uniqueness against existing keys
+                    $existingKeysLower = array_map('strtolower', $existingKeys);
+                    $candidate = $hex;
+                    $i = 1;
+                    while (in_array(strtolower($candidate), $existingKeysLower)) {
+                        $candidate = $hex . '_' . $i;
+                        $i++;
+                    }
+                    $group['key'] = $candidate;
+                } catch (\Throwable $e) {
+                    // fallback to slug-based unique key
+                    $group['key'] = $this->generateUniqueGroupKey($group['name'] ?? 'group', $groups);
+                }
+            }
+            // Require a default model when creating a new group
+            if (empty($group['model'])) {
+                return response()->json(['ok' => false, 'message' => '必须选择默认模型'], 400);
             }
             $groups[] = $group;
         }

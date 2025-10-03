@@ -1,1 +1,40 @@
-[]
+[
+    {
+        "name": "1223323",
+        "key": "12",
+        "domains": [
+            "hkhkhkhkhk",
+            "dgdgdgdfsd",
+            "sf",
+            "fsf"
+        ],
+        "force_www": false,
+        "force_mobile": false,
+        "model": "model_1",
+        "template": null,
+        "created_at": "2025-10-03 10:32:54"
+    },
+    {
+        "name": "12asdasd",
+        "key": "12",
+        "domains": [],
+        "force_www": false,
+        "force_mobile": false,
+        "model": "model_1",
+        "template": null,
+        "created_at": "2025-10-03 11:06:19"
+    },
+    {
+        "name": "12sfsf",
+        "key": "12",
+        "domains": [
+            "hkhkhkhkhk",
+            "dgdg"
+        ],
+        "force_www": false,
+        "force_mobile": false,
+        "model": "model_1",
+        "template": null,
+        "created_at": "2025-10-03 11:21:48"
+    }
+]

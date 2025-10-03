@@ -400,17 +400,19 @@
                                     <div class="muted">尚未配置任何分组。</div>
                                 @else
                                     <table>
-                                        <thead><tr><th>分组名</th><th>域名数量</th><th>默认模型</th><th>操作</th></tr></thead>
+                                        <thead><tr><th>分组名</th><th>Key</th><th>域名数量</th><th>默认模型</th><th>操作</th></tr></thead>
                                         <tbody>
                                         @foreach($groups as $g)
                                             <tr>
                                                 <td>{{ $g['name'] ?? '(unnamed)' }}</td>
+                                                <td style="font-family:monospace;font-size:12px">{{ $g['key'] ?? '' }}</td>
                                                 <td>{{ isset($g['domains']) ? count($g['domains']) : 0 }}</td>
-                                                <td>{{ $g['model'] ?? '' }}</td>
+                                                <td>{{ (isset($modelsMap) && isset($modelsMap[$g['model'] ?? ''])) ? $modelsMap[$g['model']] : ($g['model'] ?? '') }}</td>
                                                 <td>
                                                     <?php $g_b64 = base64_encode(json_encode($g, JSON_UNESCAPED_UNICODE)); ?>
                                                     <a href="#" class="group-edit-link" data-group-b64='{{ $g_b64 }}'>编辑</a>
-                                                    <a href="#" class="group-remove-link" data-group-name="{{ $g['name'] ?? '' }}" style="color:#dc3545;margin-left:8px">删除</a>
+                                                    &nbsp;|&nbsp;
+                                                    <a href="#" class="group-remove-link" data-group-name="{{ $g['name'] ?? '' }}" style="color:#dc3545">删除</a>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -607,7 +609,7 @@
                                         @foreach($modelsList as $m)
                                             <tr>
                                                 <td>{{ $m['name'] ?? '' }}</td>
-                                                <td>{{ $m['key'] ?? '' }}</td>
+                                                <td><span style="font-family:monospace;font-size:12px">{{ $m['key'] ?? '' }}</span></td>
                                                 <td>{{ is_array($m['template'] ?? null) ? json_encode($m['template'], JSON_UNESCAPED_UNICODE) : ($m['template'] ?? '') }}</td>
                                                 <?php $m_b64 = base64_encode(json_encode($m, JSON_UNESCAPED_UNICODE)); ?>
                                                 <td>
@@ -1561,7 +1563,14 @@
                                 j.files.forEach(function(f){
                                     var row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.padding='6px 8px';
                                     var left = document.createElement('div');
-                                    var groupLabel = f.group ? ('<span class="muted">['+f.group+'] </span>') : '';
+                                    // Display friendly group name where possible. Backend may supply a display name in f.group.
+                                    var displayGroup = '';
+                                    if (f.group && f.group !== '') displayGroup = f.group;
+                                    // If backend returned group_key or we have a select mapping, try to get a nicer name from the select options
+                                    var sel = document.getElementById('content_group_select');
+                                    var keyToCheck = f.group_key || f.group;
+                                    if (sel && keyToCheck){ var opt = sel.querySelector('option[value="'+keyToCheck+'"]'); if(opt) displayGroup = opt.textContent; }
+                                    var groupLabel = displayGroup ? ('<span class="muted">['+displayGroup+'] </span>') : '';
                                     left.innerHTML = groupLabel + '<strong>'+f.file+'</strong><div class="muted">'+f.mtime+' • '+f.size+' bytes</div>';
                                     var right = document.createElement('div');
                                     var dl = document.createElement('a'); dl.className='btn'; dl.href = '#'; dl.style.background = '#10b981'; dl.textContent = '下载';
@@ -1870,9 +1879,14 @@
                         <label class="small">分组名称</label>
                         <input type="text" id="modal_group_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.name) ? existing.name.replace(/"/g,'&quot;') : ''}">
                     </div>
-                    <div style="margin-top:8px">
-                        <label class="small">唯一 key (英数字和下划线)</label>
-                        <input type="text" id="modal_group_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.key) ? existing.key : ''}" title="用于内部标识，建议小写字母、数字和下划线">
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                        <div style="flex:1">
+                            <label class="small">唯一 key (英数字和下划线)</label>
+                            <input type="text" id="modal_group_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.key) ? existing.key : ''}" title="用于内部标识，建议小写字母、数字和下划线">
+                        </div>
+                        <div id="modal_group_key_status" style="min-width:28px;text-align:center;font-size:14px;color:var(--muted);" aria-hidden="true" title="">
+                            <!-- lock/unlock icon will be injected here -->
+                        </div>
                     </div>
                     <div style="margin-top:8px">
                         <label class="small">域名 (每行一条)</label>
@@ -1906,6 +1920,11 @@
                     obj.model = (sel && sel.value) ? sel.value : (document.getElementById('modal_group_model_hidden').value || '');
                     obj.template = document.getElementById('modal_group_template').value || '';
                     if (!obj.name) { showToast('分组名不能为空', 'error'); return; }
+                    // Require a model to be selected when creating a new group
+                    if (!(existing && existing.key) && (!obj.model || obj.model.trim() === '')){
+                        showToast('请先选择默认模型', 'error');
+                        return;
+                    }
                     // POST JSON to server
                     fetch('{{ route('admin.sites.json') }}', { method: 'POST', headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' }, body: JSON.stringify(obj) })
                         .then(r=>r.json().then(j=>({s:r.status,j:j})))
@@ -1941,15 +1960,31 @@
 
                         function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9_\-]+/g,'_').replace(/(^_+|_+$)/g,''); }
 
-                        if (existing && existing.key) {
-                            // editing: lock key
-                            if(keyInp){ keyInp.readOnly = true; keyInp.style.background = 'rgba(0,0,0,0.03)'; keyInp.title = '编辑时不允许修改 key'; }
+                        var keyStatusEl = document.getElementById('modal_group_key_status');
+                        function setKeyLocked(locked){
+                            if(!keyInp) return;
+                            keyInp.readOnly = !!locked;
+                            keyInp.style.background = locked ? 'rgba(0,0,0,0.03)' : '';
+                            keyInp.title = locked ? '编辑时不允许修改 key' : '可编辑';
+                            if(keyStatusEl){
+                                if(locked){ keyStatusEl.innerHTML = '🔒'; keyStatusEl.title = 'Key 已锁定，编辑名称不会改变此 Key'; }
+                                else { keyStatusEl.innerHTML = '🔓'; keyStatusEl.title = 'Key 可编辑'; }
+                            }
+                        }
+
+                        if (existing) {
+                            // editing: lock key (do not allow key to change when editing name)
+                            setKeyLocked(true);
                         } else {
+                            // For new groups, prefill a random key and lock it (not editable by default)
                             var userEditedKey = false;
-                            keyInp?.addEventListener('input', function(){ userEditedKey = true; });
-                            nameInp?.addEventListener('input', function(){ if(userEditedKey) return; var base = slugify(this.value) || 'group'; var candidate = base; var i = 1; var keys = (cachedGroups||[]).map(function(g){ return (g.key||g.name||'').toLowerCase(); }); while(keys.includes(candidate.toLowerCase())){ candidate = base + '_' + i; i++; } if(keyInp) keyInp.value = candidate; });
-                            // initial trigger
-                            if(nameInp && !keyInp.value){ nameInp.dispatchEvent(new Event('input')); }
+                            // keyInp?.addEventListener('input', function(){ userEditedKey = true; });
+                            // nameInp?.addEventListener('input', function(){ if(userEditedKey) return; var base = slugify(this.value) || 'group'; var candidate = base; var i = 1; var keys = (cachedGroups||[]).map(function(g){ return (g.key||g.name||'').toLowerCase(); }); while(keys.includes(candidate.toLowerCase())){ candidate = base + '_' + i; i++; } if(keyInp) keyInp.value = candidate; });
+                            // initial trigger: if no key, set a random 32-hex so user sees a unique random key
+                            function genRandomHex(len){ try{ var bytes = new Uint8Array(len/2); if(window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes); else for(var i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256); return Array.from(bytes).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join(''); }catch(e){ var s=''; for(var i=0;i<len/2;i++){ s += ('0'+(Math.floor(Math.random()*256)).toString(16)).slice(-2); } return s; } }
+                            if(nameInp && !keyInp.value){ keyInp.value = genRandomHex(32); }
+                            // lock key immediately after generating so it's not editable
+                            setKeyLocked(true);
                         }
                     }catch(e){ console.warn('group key generation failed', e); }
                 });
@@ -1997,9 +2032,14 @@
                         <label class="small">显示名称</label>
                         <input type="text" id="modal_model_name" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.name) ? existing.name.replace(/"/g,'&quot;') : ''}">
                     </div>
-                    <div style="margin-top:8px">
-                        <label class="small">唯一 key (英数字和下划线)</label>
-                        <input type="text" id="modal_model_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.key) ? existing.key : ''}">
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                        <div style="flex:1">
+                            <label class="small">唯一 key (英数字和下划线)</label>
+                            <input type="text" id="modal_model_key" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,0.06);border-radius:6px" value="${(existing && existing.key) ? existing.key : ''}">
+                        </div>
+                        <div id="modal_model_key_status" style="min-width:28px;text-align:center;font-size:14px;color:var(--muted);" aria-hidden="true" title="">
+                            <!-- lock icon -->
+                        </div>
                     </div>
                     <div style="margin-top:8px">
                         <label class="small">模板映射 (多行，格式: <code>key => template.html</code>，例如: <code>page => template.html</code>)</label>
@@ -2080,19 +2120,30 @@
                         // Also set the hidden original key field for edit operations if present
                         var origEl = document.getElementById('_orig_key_input'); if(origEl) origEl.value = (existing && existing.key) ? existing.key : '';
 
-                        // If editing, lock the key field and visually indicate it
-                        if (existing && existing.key) {
-                            if(keyInp){ keyInp.readOnly = true; keyInp.style.background = 'rgba(0,0,0,0.03)'; keyInp.title = '编辑时不允许修改 key'; }
-                        } else {
-                            // For new models: auto-generate key from name and ensure uniqueness
+                        // Always lock model key in modal to prevent editing
+                        var modelKeyStatus = document.getElementById('modal_model_key_status');
+                        function setModelKeyLocked(){ if(!keyInp) return; keyInp.readOnly = true; keyInp.style.background='rgba(0,0,0,0.03)'; keyInp.title='Key 不可编辑'; if(modelKeyStatus) { modelKeyStatus.innerHTML='🔒'; modelKeyStatus.title='Key 已锁定，不可编辑'; } }
+                        setModelKeyLocked();
+                        if (!(existing && existing.key)) {
+                            // For new models: default key is a long random hex string (32 hex chars). Allow user to edit if desired.
                             var cachedModels = [];
                             fetch('{{ route('admin.models.list') }}').then(r=>r.json()).then(list=>{ cachedModels = list || []; }).catch(()=>{ cachedModels = []; });
-                            function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9_\-]+/g,'_').replace(/^_+|_+$/g,''); }
+
+                            function generateRandomHex(len){
+                                try{
+                                    var bytes = new Uint8Array(len/2);
+                                    if(window.crypto && window.crypto.getRandomValues){ window.crypto.getRandomValues(bytes); }
+                                    else { for(var i=0;i<bytes.length;i++){ bytes[i] = Math.floor(Math.random()*256); } }
+                                    return Array.from(bytes).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+                                }catch(e){ var s=''; for(var i=0;i<(len/2);i++){ s += ('0'+(Math.floor(Math.random()*256)).toString(16)).slice(-2); } return s; }
+                            }
+
                             var userEditedKey = false;
                             keyInp?.addEventListener('input', function(){ userEditedKey = true; });
-                            nameInp?.addEventListener('input', function(){ if(userEditedKey) return; var base = slugify(this.value) || 'model'; var candidate = base; var i=1; var keys = (cachedModels||[]).map(function(m){ return (m.key||'').toLowerCase(); }); while(keys.includes(candidate.toLowerCase())){ candidate = base + '_' + i; i++; } if(keyInp) keyInp.value = candidate; });
-                            // trigger generation on initial load if name present
-                            if(nameInp && !keyInp.value){ nameInp.dispatchEvent(new Event('input')); }
+                            // set initial random 32-char hex key if empty (but keep readonly)
+                            if(keyInp && (!keyInp.value || keyInp.value.trim() === '')){
+                                keyInp.value = generateRandomHex(32);
+                            }
                         }
 
                         // autosize template textarea
@@ -2307,6 +2358,34 @@
             // handle back/forward navigation
             window.addEventListener('popstate', function(){ var q = location.search ? location.pathname + location.search : location.pathname; fetchAndReplace(q, false); });
         })();
+    </script>
+    <script>
+        // Ensure group edit links always open the modal (robust decode of data-group-b64)
+        document.addEventListener('click', function(e){
+            try{
+                var a = e.target.closest && e.target.closest('.group-edit-link');
+                if(!a) return;
+                e.preventDefault();
+                var raw = a.getAttribute('data-group-b64') || a.getAttribute('data-group') || a.dataset.group || '';
+                var jsonStr = raw || '{}';
+                if(raw){
+                    // try base64 decode first
+                    try{
+                        var decoded = window.atob(raw);
+                        // try parsing decoded directly; if it fails, try utf8 decode fallback
+                        try{ JSON.parse(decoded); jsonStr = decoded; }
+                        catch(e){ try{ jsonStr = decodeURIComponent(escape(decoded)); }catch(e2){ jsonStr = decoded; } }
+                    }catch(err){
+                        // not base64 - maybe plain JSON already
+                        jsonStr = raw;
+                    }
+                }
+                var g = {};
+                try{ g = JSON.parse(jsonStr || '{}'); }catch(ex){ console.error('parse group json failed', ex); showToast('解析分组数据失败','error'); return; }
+                if(window.openGroupModal) return openGroupModal(g);
+                if(window.loadGroup) return window.loadGroup(g);
+            }catch(inner){ console.error(inner); }
+        });
     </script>
 </body>
 </html>
